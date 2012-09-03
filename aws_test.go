@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -61,7 +64,7 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 			d.base = f
 			d.req, err = ioutil.ReadFile(v4dir + "/" + f + ".req")
 			if err != nil {
-				t.Error(err)
+				t.Log(err)
 				continue
 			}
 			ch <- d
@@ -71,6 +74,11 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 	return ch
 }
 
+func parseRequest(in []byte) (*http.Request, error) {
+	reader := bufio.NewReader(bytes.NewBuffer(in))
+	return http.ReadRequest(reader)
+}
+
 func TestCreateCanonicalRequest(t *testing.T) {
 	files, err := testFiles(v4dir)
 	if err != nil {
@@ -78,7 +86,11 @@ func TestCreateCanonicalRequest(t *testing.T) {
 	}
 	tests := readTestFiles(files, t)
 	for f := range tests {
+		_, err := parseRequest(f.req)
+		if err != nil {
+			t.Error(f.base, err)
+			continue
+		}
 		fmt.Println(f.base)
-		// fmt.Println(string(f.req))
 	}
 }
