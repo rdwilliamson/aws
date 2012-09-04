@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -90,6 +89,12 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 				}
 			}
 
+			d.creq, err = ioutil.ReadFile(v4dir + "/" + f + ".creq")
+			if err != nil {
+				t.Error("reading", d.base, err)
+				continue
+			}
+
 			ch <- d
 		}
 		close(ch)
@@ -104,12 +109,15 @@ func TestCreateCanonicalRequest(t *testing.T) {
 	}
 	tests := readTestFiles(files, t)
 	for f := range tests {
-		t.Log(f.base)
 		cr, err := CreateCanonicalRequest(f.request)
 		if err != nil {
-			t.Error(err)
+			t.Error(f.base, err)
+			continue
 		}
-		// t.Log(string(cr))
-		fmt.Println(string(cr))
+		if !bytes.Equal(cr, f.creq) {
+			t.Error(f.base)
+			t.Logf("got:\n%s", string(cr))
+			t.Logf("want:\n%s", string(f.creq))
+		}
 	}
 }

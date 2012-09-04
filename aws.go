@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"sort"
 	"strings"
 )
@@ -69,7 +70,26 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 	}
 
 	// 2
-	_, err = crb.WriteString(r.URL.Path)
+	// go's path.Clean will remove the trailing slash, if one exists, check if
+	// it will need to be readded
+	var ts bool
+	if r.URL.Path[len(r.URL.Path)-1] == '/' {
+		for i := len(r.URL.Path) - 2; i > 0; i-- {
+			if r.URL.Path[i] != '/' && r.URL.Path[i] != '.' {
+				ts = true
+				break
+			}
+		}
+	}
+	var cp string // canonical path
+	parts := strings.Split(path.Clean(r.URL.Path)[1:], "/")
+	for i := range parts {
+		cp += "/" + encode(parts[i])
+	}
+	if ts {
+		cp += "/"
+	}
+	_, err = crb.WriteString(cp)
 	if err != nil {
 		return nil, err
 	}
@@ -108,10 +128,10 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = crb.WriteByte('\n')
-		if err != nil {
-			return nil, err
-		}
+	}
+	err = crb.WriteByte('\n')
+	if err != nil {
+		return nil, err
 	}
 
 	// 4
@@ -123,6 +143,7 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 		headers = append(headers, header)
 		headersMap[header] = i
 	}
+	headers = append(headers, "host")
 	sort.Strings(headers)
 	for i := range headers {
 		_, err = crb.WriteString(headers[i])
@@ -133,19 +154,26 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		value := strings.Join(r.Header[headersMap[headers[i]]], ",")
+		var value string
+		if headers[i] == "host" {
+			value = r.Host
+		} else {
+			values := r.Header[headersMap[headers[i]]]
+			sort.Strings(values)
+			value = strings.Join(values, ",")
+		}
 		_, err := crb.WriteString(value)
 		err = crb.WriteByte('\n')
 		if err != nil {
 			return nil, err
 		}
 	}
-
-	// 5
 	err = crb.WriteByte('\n')
 	if err != nil {
 		return nil, err
 	}
+
+	// 5
 	_, err = crb.WriteString(strings.Join(headers, ";"))
 	if err != nil {
 		return nil, err
