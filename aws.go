@@ -60,7 +60,7 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 	var crb bytes.Buffer // canonical request buffer
 
 	// 1
-	_, err := crb.Write([]byte(r.Method))
+	_, err := crb.WriteString(r.Method)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 	}
 
 	// 2
-	_, err = crb.Write([]byte(r.URL.Path))
+	_, err = crb.WriteString(r.URL.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 		}
 	}
 	if len(cqs) > 0 {
-		_, err = crb.Write([]byte(cqs))
+		_, err = crb.WriteString(cqs)
 		if err != nil {
 			return nil, err
 		}
@@ -125,7 +125,7 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 	}
 	sort.Strings(headers)
 	for i := range headers {
-		_, err = crb.Write([]byte(headers[i]))
+		_, err = crb.WriteString(headers[i])
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +134,7 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 			return nil, err
 		}
 		value := strings.Join(r.Header[headersMap[headers[i]]], ",")
-		_, err := crb.Write([]byte(value))
+		_, err := crb.WriteString(value)
 		err = crb.WriteByte('\n')
 		if err != nil {
 			return nil, err
