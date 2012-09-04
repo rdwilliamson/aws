@@ -1,6 +1,12 @@
 package main
 
-import ()
+import (
+	"bytes"
+	"fmt"
+	"net/http"
+	"net/url"
+	"sort"
+)
 
 var (
 	unreserved = make([]bool, 128)
@@ -46,6 +52,67 @@ func encode(s string) string {
 }
 
 // http://docs.amazonwebservices.com/general/latest/gr/sigv4-create-canonical-request.html
-func CreateCanonicalRequest() {
+func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 
+	fmt.Println(r)
+
+	var crb bytes.Buffer // canonical request buffer
+
+	// 1
+	_, err := crb.Write([]byte(r.Method))
+	if err != nil {
+		return nil, err
+	}
+	err = crb.WriteByte('\n')
+	if err != nil {
+		return nil, err
+	}
+
+	// 2
+	_, err = crb.Write([]byte(r.URL.Path))
+	if err != nil {
+		return nil, err
+	}
+	err = crb.WriteByte('\n')
+	if err != nil {
+		return nil, err
+	}
+
+	// 3
+	// TODO another buffer to avoid all the string allocation
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0)
+	for i := range query {
+		keys = append(keys, i)
+	}
+	sort.Strings(keys)
+	var cqs string // canonical query string
+	for i := range keys {
+		if i > 0 {
+			cqs = cqs + "&"
+		}
+		parameters := query[keys[i]]
+		sort.Strings(parameters)
+		for j := range parameters {
+			if j > 0 {
+				cqs = cqs + "&"
+			}
+			cqs = cqs + encode(keys[i]) + "=" + encode(parameters[j])
+		}
+	}
+	if len(cqs) > 0 {
+		_, err = crb.Write([]byte(cqs))
+		if err != nil {
+			return nil, err
+		}
+		err = crb.WriteByte('\n')
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return crb.Bytes(), nil
 }
