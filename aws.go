@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 )
 
 var (
@@ -108,6 +109,32 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		err = crb.WriteByte('\n')
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// 4
+	headers := make([]string, 0)
+	headersMap := make(map[string]string)
+	for i := range r.Header {
+		header := strings.ToLower(strings.TrimSpace(i))
+		headers = append(headers, header)
+		headersMap[header] = i
+	}
+	sort.Strings(headers)
+	for i := range headers {
+		_, err = crb.Write([]byte(headers[i]))
+		if err != nil {
+			return nil, err
+		}
+		err = crb.WriteByte(':')
+		if err != nil {
+			return nil, err
+		}
+		value := strings.Join(r.Header[headersMap[headers[i]]], ",")
+		_, err := crb.Write([]byte(value))
 		err = crb.WriteByte('\n')
 		if err != nil {
 			return nil, err
