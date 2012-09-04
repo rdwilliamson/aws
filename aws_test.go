@@ -85,6 +85,9 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 					t.Error("parsing", d.base, "request", err)
 					continue
 				}
+				if i := bytes.Index(d.req, []byte("\n\n")); i != -1 {
+					d.request.Body = ioutil.NopCloser(bytes.NewBuffer(d.req[i+2:]))
+				}
 			}
 
 			ch <- d
@@ -101,12 +104,12 @@ func TestCreateCanonicalRequest(t *testing.T) {
 	}
 	tests := readTestFiles(files, t)
 	for f := range tests {
-		fmt.Println(f.base)
-
+		t.Log(f.base)
 		cr, err := CreateCanonicalRequest(f.request)
 		if err != nil {
 			t.Error(err)
 		}
+		// t.Log(string(cr))
 		fmt.Println(string(cr))
 	}
 }

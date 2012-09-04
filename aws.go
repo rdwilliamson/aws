@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"sort"
@@ -54,9 +56,6 @@ func encode(s string) string {
 
 // http://docs.amazonwebservices.com/general/latest/gr/sigv4-create-canonical-request.html
 func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
-
-	fmt.Println(r)
-
 	var crb bytes.Buffer // canonical request buffer
 
 	// 1
@@ -116,6 +115,7 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 	}
 
 	// 4
+	// TODO check for data and add if required
 	headers := make([]string, 0)
 	headersMap := make(map[string]string)
 	for i := range r.Header {
@@ -139,6 +139,32 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// 5
+	err = crb.WriteByte('\n')
+	if err != nil {
+		return nil, err
+	}
+	_, err = crb.WriteString(strings.Join(headers, ";"))
+	if err != nil {
+		return nil, err
+	}
+	err = crb.WriteByte('\n')
+	if err != nil {
+		return nil, err
+	}
+
+	// 6
+	hash := sha256.New()
+	_, err = io.Copy(hash, r.Body)
+	if err != nil {
+		return nil, err
+	}
+	var hashed [sha256.Size]byte
+	_, err = fmt.Fprintf(&crb, "%x", hash.Sum(hashed[:0]))
+	if err != nil {
+		return nil, err
 	}
 
 	return crb.Bytes(), nil
