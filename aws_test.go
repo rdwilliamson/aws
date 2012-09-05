@@ -12,7 +12,9 @@ import (
 )
 
 var (
-	v4dir = "aws4_testsuite"
+	v4dir             = "aws4_testsuite"
+	v4CredentialScope = "20110909/us-west-1/s3/aws4_request"
+	v4SecretKey       = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
 )
 
 type v4TestFiles struct {
@@ -95,6 +97,12 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 				continue
 			}
 
+			d.sts, err = ioutil.ReadFile(v4dir + "/" + f + ".sts")
+			if err != nil {
+				t.Error("reading", d.base, err)
+				continue
+			}
+
 			ch <- d
 		}
 		close(ch)
@@ -102,7 +110,7 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 	return ch
 }
 
-func TestCreateCanonicalRequest(t *testing.T) {
+func TestSignatureVersion4(t *testing.T) {
 	files, err := testFiles(v4dir)
 	if err != nil {
 		t.Fatal(err)
@@ -115,9 +123,27 @@ func TestCreateCanonicalRequest(t *testing.T) {
 			continue
 		}
 		if !bytes.Equal(cr, f.creq) {
-			t.Error(f.base)
+			t.Error(f.base, "canonical request")
 			t.Logf("got:\n%s", string(cr))
 			t.Logf("want:\n%s", string(f.creq))
+			continue
+		}
+		if s, ok := f.request.Header["Date"]; ok && len(s) > 0 {
+			sts, err := CreateStringToSign(cr, s[0], v4CredentialScope)
+			if err != nil {
+				t.Error(f.base, err)
+				continue
+			}
+			if !bytes.Equal(sts, f.sts) {
+				t.Error(f.base, "string to sign")
+				t.Logf("got:\n%s", string(sts))
+				t.Logf("want:\n%s", string(f.sts))
+				continue
+			}
+		} else {
+			t.Error(f.base, "no date")
+			t.Log(f.request)
+			continue
 		}
 	}
 }

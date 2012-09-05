@@ -135,7 +135,7 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 	}
 
 	// 4
-	// TODO check for data and add if required
+	// TODO check for date and add if required
 	headers := make([]string, 0)
 	headersMap := make(map[string]string)
 	for i := range r.Header {
@@ -196,4 +196,40 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 	}
 
 	return crb.Bytes(), nil
+}
+
+func CreateStringToSign(cr []byte, date, cs string) ([]byte, error) {
+	var sts bytes.Buffer
+
+	// 1
+	_, err := sts.WriteString("AWS4-HMAC-SHA256\n")
+	if err != nil {
+		return nil, err
+	}
+
+	// 2
+	// TODO get date into correct format
+	_, err = sts.WriteString(date + "\n")
+	if err != nil {
+		return nil, err
+	}
+
+	// 3
+	_, err = sts.WriteString(cs)
+	if err != nil {
+		return nil, err
+	}
+	err = sts.WriteByte('\n')
+	if err != nil {
+		return nil, err
+	}
+
+	hash := sha256.New()
+	hash.Write(cr)
+	var hashed [sha256.Size]byte
+	_, err = fmt.Fprintf(&sts, "%x", hash.Sum(hashed[:0]))
+	if err != nil {
+		return nil, err
+	}
+	return sts.Bytes(), nil
 }
