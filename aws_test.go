@@ -13,7 +13,7 @@ import (
 
 var (
 	v4dir             = "aws4_testsuite"
-	v4CredentialScope = "20110909/us-west-1/s3/aws4_request"
+	v4CredentialScope = "20110909/us-east-1/host/aws4_request"
 	v4SecretKey       = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
 )
 

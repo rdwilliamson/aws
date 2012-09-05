@@ -10,6 +10,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 )
 
 var (
@@ -208,8 +209,11 @@ func CreateStringToSign(cr []byte, date, cs string) ([]byte, error) {
 	}
 
 	// 2
-	// TODO get date into correct format
-	_, err = sts.WriteString(date + "\n")
+	d, err := time.Parse(time.RFC1123, date)
+	if err != nil {
+		return nil, err
+	}
+	_, err = sts.WriteString(d.Format("20060102T150405Z") + "\n")
 	if err != nil {
 		return nil, err
 	}
