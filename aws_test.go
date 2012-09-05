@@ -103,6 +103,12 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 				continue
 			}
 
+			d.authz, err = ioutil.ReadFile(v4dir + "/" + f + ".authz")
+			if err != nil {
+				t.Error("reading", d.base, err)
+				continue
+			}
+
 			ch <- d
 		}
 		close(ch)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/hmac"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -228,6 +229,7 @@ func CreateStringToSign(cr []byte, date, cs string) ([]byte, error) {
 		return nil, err
 	}
 
+	// 4
 	hash := sha256.New()
 	hash.Write(cr)
 	var hashed [sha256.Size]byte
@@ -236,4 +238,36 @@ func CreateStringToSign(cr []byte, date, cs string) ([]byte, error) {
 		return nil, err
 	}
 	return sts.Bytes(), nil
+}
+
+func CreateSignature(date, region, service string, sts []byte) ([]byte, error) {
+	// 1
+	h := hmac.New(sha256.New, []byte("AWS4"+v4SecretKey))
+	_, err := h.Write([]byte(date))
+	if err != nil {
+		return nil, err
+	}
+	var hh [sha256.Size]byte
+	h.Sum(hh[:0])
+	h = hmac.New(sha256.New, hh[:])
+	_, err = h.Write([]byte(region))
+	h.Sum(hh[:0])
+	h = hmac.New(sha256.New, hh[:])
+	_, err = h.Write([]byte(service))
+	if err != nil {
+		return nil, err
+	}
+	h = hmac.New(sha256.New, hh[:])
+	_, err = h.Write([]byte("aws4_request"))
+	h.Sum(hh[:0])
+
+	// 2
+	h = hmac.New(sha256.New, hh[:])
+	_, err = h.Write(sts)
+	if err != nil {
+		return nil, err
+	}
+	h.Sum(hh[:0])
+
+	return hh[:], nil
 }
