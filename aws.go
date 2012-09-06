@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+// possible api:
+// signature := NewSignature(accessKey, secret, endpoint, service)
+// signature.Sign(r *http.Request)
+
 var (
 	unreserved = make([]bool, 128)
 	hex        = "0123456789ABCDEF"
@@ -248,26 +252,25 @@ func CreateSignature(date, region, service string, sts []byte) ([]byte, error) {
 		return nil, err
 	}
 	var hh [sha256.Size]byte
-	h.Sum(hh[:0])
-	h = hmac.New(sha256.New, hh[:])
+	h = hmac.New(sha256.New, h.Sum(nil))
 	_, err = h.Write([]byte(region))
 	h.Sum(hh[:0])
-	h = hmac.New(sha256.New, hh[:])
+	h = hmac.New(sha256.New, h.Sum(nil))
 	_, err = h.Write([]byte(service))
 	if err != nil {
 		return nil, err
 	}
-	h = hmac.New(sha256.New, hh[:])
+	h = hmac.New(sha256.New, h.Sum(nil))
 	_, err = h.Write([]byte("aws4_request"))
 	h.Sum(hh[:0])
 
 	// 2
-	h = hmac.New(sha256.New, hh[:])
+	h = hmac.New(sha256.New, h.Sum(nil))
 	_, err = h.Write(sts)
 	if err != nil {
 		return nil, err
 	}
 	h.Sum(hh[:0])
 
-	return hh[:], nil
+	return []byte(fmt.Sprintf("%x", h.Sum(nil))), nil
 }

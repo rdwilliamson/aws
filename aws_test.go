@@ -134,8 +134,10 @@ func TestSignatureVersion4(t *testing.T) {
 			t.Logf("want:\n%s", string(f.creq))
 			continue
 		}
-		if s, ok := f.request.Header["Date"]; ok && len(s) > 0 {
-			sts, err := CreateStringToSign(cr, s[0], v4CredentialScope)
+		var sts []byte
+		date, ok := f.request.Header["Date"]
+		if ok && len(date) > 0 {
+			sts, err = CreateStringToSign(cr, date[0], v4CredentialScope)
 			if err != nil {
 				t.Error(f.base, err)
 				continue
@@ -150,6 +152,18 @@ func TestSignatureVersion4(t *testing.T) {
 			t.Error(f.base, "no date")
 			t.Log(f.request)
 			continue
+		}
+
+		authz, err := CreateSignature("20110909", "us-east-1", "host", sts)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+
+		if !bytes.Equal(authz, f.authz) {
+			t.Error(f.base, "signed signature")
+			t.Logf("got:\n%s", authz)
+			t.Logf("want:\n%s", f.authz)
 		}
 	}
 }
