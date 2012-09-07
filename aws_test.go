@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -26,6 +28,7 @@ type v4TestFiles struct {
 	sreq  []byte
 
 	request *http.Request
+	body    io.ReadSeeker
 }
 
 // http://docs.amazonwebservices.com/general/latest/gr/signature-v4-test-suite.html
@@ -86,8 +89,10 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 					t.Error("parsing", d.base, "request", err)
 					continue
 				}
+				delete(d.request.Header, "User-Agent")
 				if i := bytes.Index(d.req, []byte("\n\n")); i != -1 {
-					d.request.Body = ioutil.NopCloser(bytes.NewBuffer(d.req[i+2:]))
+					d.body = bytes.NewReader(d.req[i+2:])
+					d.request.Body = ioutil.NopCloser(d.body)
 				}
 			}
 
@@ -104,6 +109,12 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 			}
 
 			d.authz, err = ioutil.ReadFile(v4dir + "/" + f + ".authz")
+			if err != nil {
+				t.Error("reading", d.base, err)
+				continue
+			}
+
+			d.sreq, err = ioutil.ReadFile(v4dir + "/" + f + ".sreq")
 			if err != nil {
 				t.Error("reading", d.base, err)
 				continue
@@ -172,11 +183,36 @@ func TestSignatureVersion4(t *testing.T) {
 		}
 		authz = append(authz, ", Signature="...)
 		authz = append(authz, sig...)
-
 		if !bytes.Equal(authz, f.authz) {
 			t.Error(f.base, "signed signature")
 			t.Logf("got:\n%s", authz)
 			t.Logf("want:\n%s", f.authz)
+		}
+
+		var sreqBuffer bytes.Buffer
+		i := bytes.Index(f.req, []byte("\n\n"))
+		_, err = sreqBuffer.Write(f.req[:i+1])
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		_, err = sreqBuffer.WriteString(fmt.Sprintf("Authorization: %s\n\n",
+			authz))
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		f.body.Seek(0, 0)
+		_, err = io.Copy(&sreqBuffer, f.request.Body)
+		if err != nil {
+			t.Error(err)
+			continue
+		}
+		sreq := sreqBuffer.Bytes()
+		if !bytes.Equal(sreq, f.sreq) {
+			t.Error(f.base, "signed request")
+			t.Logf("got:\n%s", sreq)
+			t.Logf("want:\n%s", f.sreq)
 		}
 	}
 }
