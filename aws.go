@@ -18,9 +18,13 @@ import (
 // signature := NewSignature(accessKey, secret, endpoint, service)
 // signature.Sign(r *http.Request)
 
+const (
+	iSO8601BasicFormat      = "20060102T150405Z"
+	iSO8601BasicFormatShort = "20060102"
+)
+
 var (
 	unreserved = make([]bool, 128)
-	hex        = "0123456789ABCDEF"
 )
 
 func init() {
@@ -33,6 +37,7 @@ func init() {
 
 // from https://launchpad.net/goamz
 func encode(s string) string {
+	const hex = "0123456789ABCDEF"
 	encode := false
 	for i := 0; i != len(s); i++ {
 		c := s[i]
@@ -62,17 +67,17 @@ func encode(s string) string {
 }
 
 // http://docs.amazonwebservices.com/general/latest/gr/sigv4-create-canonical-request.html
-func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
+func CreateCanonicalRequest(r *http.Request) ([]byte, []string, error) {
 	var crb bytes.Buffer // canonical request buffer
 
 	// 1
 	_, err := crb.WriteString(r.Method)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	err = crb.WriteByte('\n')
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// 2
@@ -97,18 +102,18 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 	}
 	_, err = crb.WriteString(cp)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	err = crb.WriteByte('\n')
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// 3
 	// TODO another buffer to avoid all the string allocation
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	keys := make([]string, 0)
 	for i := range query {
@@ -132,12 +137,12 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 	if len(cqs) > 0 {
 		_, err = crb.WriteString(cqs)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	err = crb.WriteByte('\n')
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// 4
@@ -154,11 +159,11 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 	for i := range headers {
 		_, err = crb.WriteString(headers[i])
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		err = crb.WriteByte(':')
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		var value string
 		if headers[i] == "host" {
@@ -171,37 +176,37 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, error) {
 		_, err := crb.WriteString(value)
 		err = crb.WriteByte('\n')
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 	err = crb.WriteByte('\n')
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// 5
 	_, err = crb.WriteString(strings.Join(headers, ";"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	err = crb.WriteByte('\n')
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// 6
 	hash := sha256.New()
 	_, err = io.Copy(hash, r.Body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var hashed [sha256.Size]byte
 	_, err = fmt.Fprintf(&crb, "%x", hash.Sum(hashed[:0]))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return crb.Bytes(), nil
+	return crb.Bytes(), headers, nil
 }
 
 func CreateStringToSign(cr []byte, date, cs string) ([]byte, error) {

@@ -122,8 +122,10 @@ func TestSignatureVersion4(t *testing.T) {
 		t.Fatal(err)
 	}
 	tests := readTestFiles(files, t)
+	var headers []string
+	var cr []byte
 	for f := range tests {
-		cr, err := CreateCanonicalRequest(f.request)
+		cr, headers, err = CreateCanonicalRequest(f.request)
 		if err != nil {
 			t.Error(f.base, err)
 			continue
@@ -154,11 +156,22 @@ func TestSignatureVersion4(t *testing.T) {
 			continue
 		}
 
-		authz, err := CreateSignature("20110909", "us-east-1", "host", sts)
+		sig, err := CreateSignature("20110909", "us-east-1", "host", sts)
 		if err != nil {
 			t.Error(err)
 			continue
 		}
+		authz := []byte("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
+		authz = append(authz, v4CredentialScope...)
+		authz = append(authz, ", SignedHeaders="...)
+		for i := range headers {
+			if i > 0 {
+				authz = append(authz, ';')
+			}
+			authz = append(authz, headers[i]...)
+		}
+		authz = append(authz, ", Signature="...)
+		authz = append(authz, sig...)
 
 		if !bytes.Equal(authz, f.authz) {
 			t.Error(f.base, "signed signature")
