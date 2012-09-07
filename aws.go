@@ -66,6 +66,42 @@ func encode(s string) string {
 	return string(e[:ei])
 }
 
+type Keys struct {
+	Access, Secret string
+}
+
+// TODO prefilled ones
+type Region struct {
+	Region string // human readable name
+	Name   string // canonical name
+	// TODO CloudFormation Endpoint, CloundFront Endpoint etc.
+	Glacier string
+}
+
+var (
+	USEast = &Region{
+		"US East (Northern Virginia)",
+		"us-east-1",
+		"glacier.us-east-1.amazonaws.com"}
+)
+
+type Signature [sha256.Size]byte
+
+func NewSignature(k Keys, t time.Time, r *Region, service string) *Signature {
+	// var hh [sha256.Size]byte
+	h := hmac.New(sha256.New, []byte("AWS4"+k.Secret))
+	h.Write([]byte(t.Format(iSO8601BasicFormatShort)))
+	h = hmac.New(sha256.New, h.Sum(nil))
+	h.Write([]byte(r.Name))
+	// h.Sum(hh[:0])
+	h = hmac.New(sha256.New, h.Sum(nil))
+	h.Write([]byte(service))
+	h = hmac.New(sha256.New, h.Sum(nil))
+	h.Write([]byte("aws4_request"))
+	// h.Sum(hh[:0])
+	return nil
+}
+
 // http://docs.amazonwebservices.com/general/latest/gr/sigv4-create-canonical-request.html
 func CreateCanonicalRequest(r *http.Request) ([]byte, []string, error) {
 	var crb bytes.Buffer // canonical request buffer
