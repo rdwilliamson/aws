@@ -1,4 +1,4 @@
-package main
+package aws
 
 import (
 	"bytes"
@@ -78,14 +78,6 @@ type Region struct {
 	// TODO CloudFormation Endpoint, CloundFront Endpoint etc.
 	Glacier string
 }
-
-// http://docs.amazonwebservices.com/general/latest/gr/rande.html
-var (
-	USEast = &Region{
-		"US East (Northern Virginia)",
-		"us-east-1",
-		"glacier.us-east-1.amazonaws.com"}
-)
 
 type Signature struct {
 	access string
