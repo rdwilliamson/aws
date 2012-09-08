@@ -236,60 +236,6 @@ func BenchmarkNewSignature(b *testing.B) {
 	}
 }
 
-func BenchmarkSignatureSignStringToSign(b *testing.B) {
-	t := time.Now()
-	s := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-		"20110909/us-east-1/host/aws4_request", t, USEast, "service")
-	sts := []byte(`AWS4-HMAC-SHA256
-20110909T233600Z
-20110909/us-east-1/host/aws4_request
-4c5c6e4b52fb5fb947a8733982a8a5a61b14f04345cbfe6e739236c76dd48f74`)
-	for i := 0; i < b.N; i++ {
-		_ = s.signStringToSign(sts)
-	}
-}
-
-func BenchmarkCreateCanonicalRequest(b *testing.B) {
-	b.StopTimer()
-	rawRequest := []byte(`POST / HTTP/1.1
-Content-Type:application/x-www-form-urlencoded
-Date:Mon, 09 Sep 2011 23:36:00 GMT
-Host:host.foo.com
-
-foo=bar`)
-	reader := bufio.NewReader(bytes.NewBuffer(rawRequest))
-	request, err := http.ReadRequest(reader)
-	if err != nil {
-		b.Fatal(err)
-	}
-	delete(request.Header, "User-Agent")
-	if i := bytes.Index(rawRequest, []byte("\n\n")); i != -1 {
-		body := bytes.NewReader(rawRequest[i+2:])
-		request.Body = ioutil.NopCloser(body)
-	}
-	b.StartTimer()
-
-	for i := 0; i < b.N; i++ {
-		_, _, _ = createCanonicalRequest(request)
-	}
-}
-
-func BenchmarkCreateStringToSign(b *testing.B) {
-	cr := []byte(`POST
-/
-
-content-type:application/x-www-form-urlencoded
-date:Mon, 09 Sep 2011 23:36:00 GMT
-host:host.foo.com
-
-content-type;date;host
-3ba8907e7a252327488df390ed517c45b96dead033600219bdca7107d1d3f88a`)
-	for i := 0; i < b.N; i++ {
-		_, _ = createStringToSign(cr, "Mon, 09 Sep 2011 23:36:00 GMT",
-			"20110909/us-east-1/host/aws4_request")
-	}
-}
-
 func BenchmarkSignatureSign(b *testing.B) {
 	b.StopTimer()
 	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
