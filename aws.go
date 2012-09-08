@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -13,14 +14,7 @@ import (
 	"time"
 )
 
-// possible api:
-// signature := NewSignature(accessKey, secret, endpoint, service)
-// signature.Sign(r *http.Request)
-
 const (
-	hex   = "0123456789ABCDEF"
-	lchex = "0123456789abcdef"
-
 	iSO8601BasicFormat      = "20060102T150405Z"
 	iSO8601BasicFormatShort = "20060102"
 )
@@ -39,6 +33,7 @@ func init() {
 
 // from https://launchpad.net/goamz
 func encode(s string) string {
+	hex := "0123456789ABCDEF"
 	encode := false
 	for i := 0; i != len(s); i++ {
 		c := s[i]
@@ -67,20 +62,16 @@ func encode(s string) string {
 	return string(e[:ei])
 }
 
-func toLcHex(x []byte) []byte {
+func toHex(x []byte) []byte {
+	hex := "0123456789abcdef"
 	z := make([]byte, 2*len(x))
 	for i, v := range x {
-		z[2*i] = lchex[(v&0xf0)>>4]
-		z[2*i+1] = lchex[v&0x0f]
+		z[2*i] = hex[(v&0xf0)>>4]
+		z[2*i+1] = hex[v&0x0f]
 	}
 	return z
 }
 
-type Keys struct {
-	Access, Secret string
-}
-
-// TODO prefilled ones
 type Region struct {
 	Region string // human readable name
 	Name   string // canonical name
@@ -96,30 +87,65 @@ var (
 		"glacier.us-east-1.amazonaws.com"}
 )
 
-type Signature [sha256.Size]byte
+type Signature struct {
+	access string
+	hash   [sha256.Size]byte
+}
 
-func NewSignature(k *Keys, t time.Time, r *Region, service string) *Signature {
+func NewSignature(secret, access string, t time.Time, r *Region, service string) *Signature {
 	var s Signature
-	h := hmac.New(sha256.New, []byte("AWS4"+k.Secret))
+	h := hmac.New(sha256.New, []byte("AWS4"+secret))
 	h.Write([]byte(t.Format(iSO8601BasicFormatShort)))
-	h = hmac.New(sha256.New, h.Sum(s[:0]))
+	h = hmac.New(sha256.New, h.Sum(s.hash[:0]))
 	h.Write([]byte(r.Name))
-	h = hmac.New(sha256.New, h.Sum(s[:0]))
+	h = hmac.New(sha256.New, h.Sum(s.hash[:0]))
 	h.Write([]byte(service))
-	h = hmac.New(sha256.New, h.Sum(s[:0]))
+	h = hmac.New(sha256.New, h.Sum(s.hash[:0]))
 	h.Write([]byte("aws4_request"))
-	h.Sum(s[:0])
+	h.Sum(s.hash[:0])
+	s.access = access
 	return &s
 }
 
-func (s *Signature) Sign(r *http.Request) *http.Request {
-	return r
+func (s *Signature) Sign(r *http.Request) error {
+	cr, headers, err := createCanonicalRequest(r)
+	if err != nil {
+		return err
+	}
+	date, ok := r.Header["Date"]
+	var sts []byte
+	if ok && len(date) > 0 {
+		sts, err = createStringToSign(cr, date[0], s.access)
+		if err != nil {
+			return err
+		}
+	} else {
+		return errors.New("no date")
+	}
+	sig := s.signStringToSign(sts)
+
+	// authorization header
+	var authz bytes.Buffer
+	authz.WriteString("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
+	authz.WriteString(s.access)
+	authz.WriteString(", SignedHeaders=")
+	for i := range headers {
+		if i > 0 {
+			authz.WriteByte(';')
+		}
+		authz.WriteString(headers[i])
+	}
+	authz.WriteString(", Signature=")
+	authz.Write(sig)
+	r.Header.Add("Authorization", authz.String())
+
+	return nil
 }
 
 func (s *Signature) signStringToSign(sts []byte) []byte {
-	h := hmac.New(sha256.New, s[:])
+	h := hmac.New(sha256.New, s.hash[:])
 	h.Write(sts)
-	return toLcHex(h.Sum(nil))
+	return toHex(h.Sum(nil))
 }
 
 func createCanonicalRequest(r *http.Request) ([]byte, []string, error) {
@@ -205,7 +231,7 @@ func createCanonicalRequest(r *http.Request) ([]byte, []string, error) {
 	hash := sha256.New()
 	io.Copy(hash, r.Body)
 	var hashed [sha256.Size]byte
-	crb.Write(toLcHex(hash.Sum(hashed[:0])))
+	crb.Write(toHex(hash.Sum(hashed[:0])))
 
 	return crb.Bytes(), headers, nil
 }
@@ -232,7 +258,7 @@ func createStringToSign(cr []byte, date, cs string) ([]byte, error) {
 	hash := sha256.New()
 	hash.Write(cr)
 	var hashed [sha256.Size]byte
-	sts.Write(toLcHex(hash.Sum(hashed[:0])))
+	sts.Write(toHex(hash.Sum(hashed[:0])))
 
 	return sts.Bytes(), nil
 }

@@ -15,9 +15,7 @@ import (
 )
 
 var (
-	v4dir             = "aws4_testsuite"
-	v4CredentialScope = "20110909/us-east-1/host/aws4_request"
-	v4SecretKey       = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+	v4dir = "aws4_testsuite"
 )
 
 type v4TestFiles struct {
@@ -131,67 +129,73 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 }
 
 func TestSignatureVersion4(t *testing.T) {
-	keys := &Keys{"", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"}
 	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
 
-	signature := NewSignature(keys, date, USEast, "host")
+	signature := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+		"20110909/us-east-1/host/aws4_request", date, USEast, "host")
 
 	files, err := testFiles(v4dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	tests := readTestFiles(files, t)
-	var headers []string
-	var cr []byte
+	// var headers []string
+	// var cr []byte
 	for f := range tests {
-		cr, headers, err = createCanonicalRequest(f.request)
+		// cr, headers, err = createCanonicalRequest(f.request)
+		// if err != nil {
+		// 	t.Error(f.base, err)
+		// 	continue
+		// }
+		// if !bytes.Equal(cr, f.creq) {
+		// 	t.Error(f.base, "canonical request")
+		// 	t.Logf("got:\n%s", string(cr))
+		// 	t.Logf("want:\n%s", string(f.creq))
+		// 	continue
+		// }
+
+		// var sts []byte
+		// date, ok := f.request.Header["Date"]
+		// if ok && len(date) > 0 {
+		// 	sts, err = createStringToSign(cr, date[0], v4CredentialScope)
+		// 	if err != nil {
+		// 		t.Error(f.base, err)
+		// 		continue
+		// 	}
+		// 	if !bytes.Equal(sts, f.sts) {
+		// 		t.Error(f.base, "string to sign")
+		// 		t.Logf("got:\n%s", string(sts))
+		// 		t.Logf("want:\n%s", string(f.sts))
+		// 		continue
+		// 	}
+		// } else {
+		// 	t.Error(f.base, "no date")
+		// 	t.Log(f.request)
+		// 	continue
+		// }
+
+		// sig := signature.signStringToSign(sts)
+		// authz := []byte("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
+		// authz = append(authz, v4CredentialScope...)
+		// authz = append(authz, ", SignedHeaders="...)
+		// for i := range headers {
+		// 	if i > 0 {
+		// 		authz = append(authz, ';')
+		// 	}
+		// 	authz = append(authz, headers[i]...)
+		// }
+		// authz = append(authz, ", Signature="...)
+		// authz = append(authz, sig...)
+		// if !bytes.Equal(authz, f.authz) {
+		// 	t.Error(f.base, "signed signature")
+		// 	t.Logf("got:\n%s", authz)
+		// 	t.Logf("want:\n%s", f.authz)
+		// }
+
+		err := signature.Sign(f.request)
 		if err != nil {
-			t.Error(f.base, err)
+			t.Error(err)
 			continue
-		}
-		if !bytes.Equal(cr, f.creq) {
-			t.Error(f.base, "canonical request")
-			t.Logf("got:\n%s", string(cr))
-			t.Logf("want:\n%s", string(f.creq))
-			continue
-		}
-
-		var sts []byte
-		date, ok := f.request.Header["Date"]
-		if ok && len(date) > 0 {
-			sts, err = createStringToSign(cr, date[0], v4CredentialScope)
-			if err != nil {
-				t.Error(f.base, err)
-				continue
-			}
-			if !bytes.Equal(sts, f.sts) {
-				t.Error(f.base, "string to sign")
-				t.Logf("got:\n%s", string(sts))
-				t.Logf("want:\n%s", string(f.sts))
-				continue
-			}
-		} else {
-			t.Error(f.base, "no date")
-			t.Log(f.request)
-			continue
-		}
-
-		sig := signature.signStringToSign(sts)
-		authz := []byte("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
-		authz = append(authz, v4CredentialScope...)
-		authz = append(authz, ", SignedHeaders="...)
-		for i := range headers {
-			if i > 0 {
-				authz = append(authz, ';')
-			}
-			authz = append(authz, headers[i]...)
-		}
-		authz = append(authz, ", Signature="...)
-		authz = append(authz, sig...)
-		if !bytes.Equal(authz, f.authz) {
-			t.Error(f.base, "signed signature")
-			t.Logf("got:\n%s", authz)
-			t.Logf("want:\n%s", f.authz)
 		}
 
 		var sreqBuffer bytes.Buffer
@@ -201,8 +205,10 @@ func TestSignatureVersion4(t *testing.T) {
 			t.Error(err)
 			continue
 		}
+		// _, err = sreqBuffer.WriteString(fmt.Sprintf("Authorization: %s\n\n",
+		// 	authz))
 		_, err = sreqBuffer.WriteString(fmt.Sprintf("Authorization: %s\n\n",
-			authz))
+			f.request.Header.Get("Authorization")))
 		if err != nil {
 			t.Error(err)
 			continue
@@ -223,17 +229,17 @@ func TestSignatureVersion4(t *testing.T) {
 }
 
 func BenchmarkNewSignature(b *testing.B) {
-	k := &Keys{"", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"}
 	t := time.Now()
 	for i := 0; i < b.N; i++ {
-		_ = NewSignature(k, t, USEast, "service")
+		_ = NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+			"20110909/us-east-1/host/aws4_request", t, USEast, "service")
 	}
 }
 
 func BenchmarkSignatureSignStringToSign(b *testing.B) {
-	k := &Keys{"", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"}
 	t := time.Now()
-	s := NewSignature(k, t, USEast, "service")
+	s := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+		"20110909/us-east-1/host/aws4_request", t, USEast, "service")
 	sts := []byte(`AWS4-HMAC-SHA256
 20110909T233600Z
 20110909/us-east-1/host/aws4_request
@@ -280,6 +286,36 @@ content-type;date;host
 3ba8907e7a252327488df390ed517c45b96dead033600219bdca7107d1d3f88a`)
 	for i := 0; i < b.N; i++ {
 		_, _ = createStringToSign(cr, "Mon, 09 Sep 2011 23:36:00 GMT",
-			v4CredentialScope)
+			"20110909/us-east-1/host/aws4_request")
+	}
+}
+
+func BenchmarkSignatureSign(b *testing.B) {
+	b.StopTimer()
+	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
+	signature := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+		"20110909/us-east-1/host/aws4_request", date, USEast, "service")
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		rawRequest := []byte(`POST / HTTP/1.1
+Content-Type:application/x-www-form-urlencoded
+Date:Mon, 09 Sep 2011 23:36:00 GMT
+Host:host.foo.com
+
+foo=bar`)
+		reader := bufio.NewReader(bytes.NewBuffer(rawRequest))
+		request, err := http.ReadRequest(reader)
+		if err != nil {
+			b.Fatal(err)
+		}
+		delete(request.Header, "User-Agent")
+		if i := bytes.Index(rawRequest, []byte("\n\n")); i != -1 {
+			body := bytes.NewReader(rawRequest[i+2:])
+			request.Body = ioutil.NopCloser(body)
+		}
+		b.StartTimer()
+		_ = signature.Sign(request)
 	}
 }
