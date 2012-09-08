@@ -14,21 +14,22 @@ import (
 	"time"
 )
 
-var (
-	v4dir = "aws4_testsuite"
-)
+func TestSignature(t *testing.T) {
+	type testData struct {
+		base string
+		req  []byte
+		sreq []byte
 
-type v4TestFiles struct {
-	base string
-	req  []byte
-	sreq []byte
+		request *http.Request
+		body    io.ReadSeeker
+	}
 
-	request *http.Request
-	body    io.ReadSeeker
-}
+	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
+	signature := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
+		"20110909/us-east-1/host/aws4_request", date, USEast, "host")
+	dir := "aws4_testsuite"
 
-func readTestFiles(t *testing.T) chan *v4TestFiles {
-	d, err := os.Open(v4dir)
+	d, err := os.Open(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,62 +54,51 @@ func readTestFiles(t *testing.T) chan *v4TestFiles {
 		}
 	}
 
-	ch := make(chan *v4TestFiles)
-	go func() {
-		for _, f := range files {
-			var err error
-			d := new(v4TestFiles)
-			d.base = f
+	tests := make([]*testData, 0)
+	for _, f := range files {
+		var err error
+		d := new(testData)
+		d.base = f
 
-			// read in the raw request and convert it to go's internal format
-			d.req, err = ioutil.ReadFile(v4dir + "/" + f + ".req")
-			if err != nil {
-				t.Error("reading", d.base, err)
-				continue
-			}
-			// go doesn't like post requests with spaces in them
-			if d.base == "post-vanilla-query-nonunreserved" ||
-				d.base == "post-vanilla-query-space" ||
-				d.base == "get-slashes" {
-				// skip tests with spacing in URLs or invalid escapes or
-				// triling slashes
-				continue
-			} else {
-				// go doesn't like lowercase http
-				fixed := bytes.Replace(d.req, []byte("http"), []byte("HTTP"), 1)
-				reader := bufio.NewReader(bytes.NewBuffer(fixed))
-				d.request, err = http.ReadRequest(reader)
-				if err != nil {
-					t.Error("parsing", d.base, "request", err)
-					continue
-				}
-				delete(d.request.Header, "User-Agent")
-				if i := bytes.Index(d.req, []byte("\n\n")); i != -1 {
-					d.body = bytes.NewReader(d.req[i+2:])
-					d.request.Body = ioutil.NopCloser(d.body)
-				}
-			}
-
-			d.sreq, err = ioutil.ReadFile(v4dir + "/" + f + ".sreq")
-			if err != nil {
-				t.Error("reading", d.base, err)
-				continue
-			}
-
-			ch <- d
+		// read in the raw request and convert it to go's internal format
+		d.req, err = ioutil.ReadFile(dir + "/" + f + ".req")
+		if err != nil {
+			t.Error("reading", d.base, err)
+			continue
 		}
-		close(ch)
-	}()
-	return ch
-}
+		// go doesn't like post requests with spaces in them
+		if d.base == "post-vanilla-query-nonunreserved" ||
+			d.base == "post-vanilla-query-space" ||
+			d.base == "get-slashes" {
+			// skip tests with spacing in URLs or invalid escapes or
+			// trailing slashes
+			continue
+		} else {
+			// go doesn't like lowercase http
+			fixed := bytes.Replace(d.req, []byte("http"), []byte("HTTP"), 1)
+			reader := bufio.NewReader(bytes.NewBuffer(fixed))
+			d.request, err = http.ReadRequest(reader)
+			if err != nil {
+				t.Error("parsing", d.base, "request", err)
+				continue
+			}
+			delete(d.request.Header, "User-Agent")
+			if i := bytes.Index(d.req, []byte("\n\n")); i != -1 {
+				d.body = bytes.NewReader(d.req[i+2:])
+				d.request.Body = ioutil.NopCloser(d.body)
+			}
+		}
 
-func TestSignatureVersion4(t *testing.T) {
-	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
-	signature := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-		"20110909/us-east-1/host/aws4_request", date, USEast, "host")
+		d.sreq, err = ioutil.ReadFile(dir + "/" + f + ".sreq")
+		if err != nil {
+			t.Error("reading", d.base, err)
+			continue
+		}
 
-	tests := readTestFiles(t)
-	for f := range tests {
+		tests = append(tests, d)
+	}
+
+	for _, f := range tests {
 		err := signature.Sign(f.request)
 		if err != nil {
 			t.Error(err)
@@ -122,8 +112,6 @@ func TestSignatureVersion4(t *testing.T) {
 			t.Error(err)
 			continue
 		}
-		// _, err = sreqBuffer.WriteString(fmt.Sprintf("Authorization: %s\n\n",
-		// 	authz))
 		_, err = sreqBuffer.WriteString(fmt.Sprintf("Authorization: %s\n\n",
 			f.request.Header.Get("Authorization")))
 		if err != nil {
