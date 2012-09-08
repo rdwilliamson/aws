@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -113,6 +112,10 @@ func NewSignature(k *Keys, t time.Time, r *Region, service string) *Signature {
 	return &s
 }
 
+func (s *Signature) Sign(r *http.Request) *http.Request {
+	return r
+}
+
 func (s *Signature) signStringToSign(sts []byte) []byte {
 	h := hmac.New(sha256.New, s[:])
 	h.Write(sts)
@@ -207,42 +210,29 @@ func createCanonicalRequest(r *http.Request) ([]byte, []string, error) {
 	return crb.Bytes(), headers, nil
 }
 
-func CreateStringToSign(cr []byte, date, cs string) ([]byte, error) {
+func createStringToSign(cr []byte, date, cs string) ([]byte, error) {
 	var sts bytes.Buffer
 
 	// 1
-	_, err := sts.WriteString("AWS4-HMAC-SHA256\n")
-	if err != nil {
-		return nil, err
-	}
+	sts.WriteString("AWS4-HMAC-SHA256\n")
 
 	// 2
+	// TODO if creating data don't reparse
 	d, err := time.Parse(time.RFC1123, date)
 	if err != nil {
 		return nil, err
 	}
-	_, err = sts.WriteString(d.Format("20060102T150405Z") + "\n")
-	if err != nil {
-		return nil, err
-	}
+	sts.WriteString(d.Format(iSO8601BasicFormat) + "\n")
 
 	// 3
-	_, err = sts.WriteString(cs)
-	if err != nil {
-		return nil, err
-	}
-	err = sts.WriteByte('\n')
-	if err != nil {
-		return nil, err
-	}
+	sts.WriteString(cs)
+	sts.WriteByte('\n')
 
 	// 4
 	hash := sha256.New()
 	hash.Write(cr)
 	var hashed [sha256.Size]byte
-	_, err = fmt.Fprintf(&sts, "%x", hash.Sum(hashed[:0]))
-	if err != nil {
-		return nil, err
-	}
+	sts.Write(toLcHex(hash.Sum(hashed[:0])))
+
 	return sts.Bytes(), nil
 }

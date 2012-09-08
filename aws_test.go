@@ -155,10 +155,11 @@ func TestSignatureVersion4(t *testing.T) {
 			t.Logf("want:\n%s", string(f.creq))
 			continue
 		}
+
 		var sts []byte
 		date, ok := f.request.Header["Date"]
 		if ok && len(date) > 0 {
-			sts, err = CreateStringToSign(cr, date[0], v4CredentialScope)
+			sts, err = createStringToSign(cr, date[0], v4CredentialScope)
 			if err != nil {
 				t.Error(f.base, err)
 				continue
@@ -242,7 +243,7 @@ func BenchmarkSignatureSignStringToSign(b *testing.B) {
 	}
 }
 
-func BenchmarkCreateCanonicalRequestNew(b *testing.B) {
+func BenchmarkCreateCanonicalRequest(b *testing.B) {
 	b.StopTimer()
 	rawRequest := []byte(`POST / HTTP/1.1
 Content-Type:application/x-www-form-urlencoded
@@ -264,5 +265,21 @@ foo=bar`)
 
 	for i := 0; i < b.N; i++ {
 		_, _, _ = createCanonicalRequest(request)
+	}
+}
+
+func BenchmarkCreateStringToSign(b *testing.B) {
+	cr := []byte(`POST
+/
+
+content-type:application/x-www-form-urlencoded
+date:Mon, 09 Sep 2011 23:36:00 GMT
+host:host.foo.com
+
+content-type;date;host
+3ba8907e7a252327488df390ed517c45b96dead033600219bdca7107d1d3f88a`)
+	for i := 0; i < b.N; i++ {
+		_, _ = createStringToSign(cr, "Mon, 09 Sep 2011 23:36:00 GMT",
+			v4CredentialScope)
 	}
 }
