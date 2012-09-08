@@ -173,11 +173,7 @@ func TestSignatureVersion4(t *testing.T) {
 			continue
 		}
 
-		sig, err := CreateSignature(signature, "20110909", "us-east-1", "host", sts)
-		if err != nil {
-			t.Error(err)
-			continue
-		}
+		sig := signature.signStringToSign(sts)
 		authz := []byte("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
 		authz = append(authz, v4CredentialScope...)
 		authz = append(authz, ", SignedHeaders="...)
@@ -220,5 +216,26 @@ func TestSignatureVersion4(t *testing.T) {
 			t.Logf("got:\n%s", sreq)
 			t.Logf("want:\n%s", f.sreq)
 		}
+	}
+}
+
+func BenchmarkNewSignature(b *testing.B) {
+	k := &Keys{"", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"}
+	t := time.Now()
+	for i := 0; i < b.N; i++ {
+		_ = NewSignature(k, t, USEast, "service")
+	}
+}
+
+func BenchmarkSignatureSignStringToSign(b *testing.B) {
+	k := &Keys{"", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"}
+	t := time.Now()
+	s := NewSignature(k, t, USEast, "service")
+	sts := []byte(`AWS4-HMAC-SHA256
+20110909T233600Z
+20110909/us-east-1/host/aws4_request
+4c5c6e4b52fb5fb947a8733982a8a5a61b14f04345cbfe6e739236c76dd48f74`)
+	for i := 0; i < b.N; i++ {
+		_ = s.signStringToSign(sts)
 	}
 }
