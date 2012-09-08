@@ -41,14 +41,11 @@ func TestSignature(t *testing.T) {
 	sort.Strings(f)
 
 	files := make([]string, 0)
-	for i := 0; i < len(f)-4; {
-		if filepath.Ext(f[i]) == ".authz" &&
-			filepath.Ext(f[i+1]) == ".creq" &&
-			filepath.Ext(f[i+2]) == ".req" &&
-			filepath.Ext(f[i+3]) == ".sreq" &&
-			filepath.Ext(f[i+4]) == ".sts" {
-			files = append(files, f[i][:len(f[i])-6])
-			i += 5
+	for i := 0; i < len(f)-1; {
+		if filepath.Ext(f[i]) == ".req" &&
+			filepath.Ext(f[i+1]) == ".sreq" {
+			files = append(files, f[i][:len(f[i])-4])
+			i += 2
 		} else {
 			i++
 		}
