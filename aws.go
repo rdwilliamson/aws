@@ -87,19 +87,30 @@ var (
 
 type Signature [sha256.Size]byte
 
-func NewSignature(k Keys, t time.Time, r *Region, service string) *Signature {
-	// var hh [sha256.Size]byte
+func NewSignature(k *Keys, t time.Time, r *Region, service string) *Signature {
+	var s Signature
 	h := hmac.New(sha256.New, []byte("AWS4"+k.Secret))
 	h.Write([]byte(t.Format(iSO8601BasicFormatShort)))
-	h = hmac.New(sha256.New, h.Sum(nil))
+	h.Sum(s[:0])
+	fmt.Printf("FIRST: %x\n", s[:])
+	h = hmac.New(sha256.New, s[:])
 	h.Write([]byte(r.Name))
-	// h.Sum(hh[:0])
-	h = hmac.New(sha256.New, h.Sum(nil))
+	h.Sum(s[:0])
+	fmt.Printf("SECOND: %x\n", s[:])
+	h = hmac.New(sha256.New, s[:])
 	h.Write([]byte(service))
-	h = hmac.New(sha256.New, h.Sum(nil))
+	h.Sum(s[:0])
+	fmt.Printf("THIRD: %x\n", s[:])
+	h = hmac.New(sha256.New, s[:])
 	h.Write([]byte("aws4_request"))
-	// h.Sum(hh[:0])
-	return nil
+	h.Sum(s[:0])
+	return &s
+}
+
+func (s *Signature) signStringToSign(sts []byte) []byte {
+	h := hmac.New(sha256.New, s[:])
+	h.Write(sts)
+	return h.Sum(nil)
 }
 
 // http://docs.amazonwebservices.com/general/latest/gr/sigv4-create-canonical-request.html
@@ -285,7 +296,7 @@ func CreateStringToSign(cr []byte, date, cs string) ([]byte, error) {
 	return sts.Bytes(), nil
 }
 
-func CreateSignature(date, region, service string, sts []byte) ([]byte, error) {
+func CreateSignature(s *Signature, date, region, service string, sts []byte) ([]byte, error) {
 	// 1
 	h := hmac.New(sha256.New, []byte("AWS4"+v4SecretKey))
 	_, err := h.Write([]byte(date))
@@ -293,20 +304,37 @@ func CreateSignature(date, region, service string, sts []byte) ([]byte, error) {
 		return nil, err
 	}
 	var hh [sha256.Size]byte
-	h = hmac.New(sha256.New, h.Sum(nil))
-	_, err = h.Write([]byte(region))
 	h.Sum(hh[:0])
-	h = hmac.New(sha256.New, h.Sum(nil))
+	fmt.Println("first:", fmt.Sprintf("%x", hh[:]))
+
+	h = hmac.New(sha256.New, hh[:])
+	_, err = h.Write([]byte(region))
+	if err != nil {
+		return nil, err
+	}
+	h.Sum(hh[:0])
+	fmt.Println("second:", fmt.Sprintf("%x", hh[:]))
+
+	h = hmac.New(sha256.New, hh[:])
 	_, err = h.Write([]byte(service))
 	if err != nil {
 		return nil, err
 	}
-	h = hmac.New(sha256.New, h.Sum(nil))
+	h.Sum(hh[:0])
+	fmt.Println("third:", fmt.Sprintf("%x", hh[:]))
+
+	h = hmac.New(sha256.New, hh[:])
 	_, err = h.Write([]byte("aws4_request"))
+	if err != nil {
+		return nil, err
+	}
 	h.Sum(hh[:0])
 
+	fmt.Println("passed:", fmt.Sprintf("%x", s[:]))
+	fmt.Println("final:", fmt.Sprintf("%x", hh[:]))
+
 	// 2
-	h = hmac.New(sha256.New, h.Sum(nil))
+	h = hmac.New(sha256.New, hh[:])
 	_, err = h.Write(sts)
 	if err != nil {
 		return nil, err

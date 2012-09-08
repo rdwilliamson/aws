@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
+	"time"
 )
 
 var (
@@ -128,6 +129,11 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 }
 
 func TestSignatureVersion4(t *testing.T) {
+	keys := &Keys{"", "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"}
+	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
+
+	signature := NewSignature(keys, date, USEast, "host")
+
 	files, err := testFiles(v4dir)
 	if err != nil {
 		t.Fatal(err)
@@ -167,7 +173,7 @@ func TestSignatureVersion4(t *testing.T) {
 			continue
 		}
 
-		sig, err := CreateSignature("20110909", "us-east-1", "host", sts)
+		sig, err := CreateSignature(signature, "20110909", "us-east-1", "host", sts)
 		if err != nil {
 			t.Error(err)
 			continue
