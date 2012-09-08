@@ -108,42 +108,10 @@ func NewSignature(secret, access string, t time.Time, r *Region, service string)
 }
 
 func (s *Signature) Sign(r *http.Request) error {
-	cr, headers, err := createCanonicalRequest(r)
-	if err != nil {
-		return err
-	}
-	date, ok := r.Header["Date"]
-	var sts []byte
-	if ok && len(date) > 0 {
-		sts, err = createStringToSign(cr, date[0], s.access)
-		if err != nil {
-			return err
-		}
-	} else {
-		return errors.New("no date")
-	}
+	// TODO check all error cases first
+	// TODO compare request date to signature date (will require storing it)
 
-	// sign string and write to authorization header
-	var authz bytes.Buffer
-	authz.WriteString("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
-	authz.WriteString(s.access)
-	authz.WriteString(", SignedHeaders=")
-	for i := range headers {
-		if i > 0 {
-			authz.WriteByte(';')
-		}
-		authz.WriteString(headers[i])
-	}
-	authz.WriteString(", Signature=")
-	h := hmac.New(sha256.New, s.hash[:])
-	h.Write(sts)
-	authz.Write(toHex(h.Sum(nil)))
-	r.Header.Add("Authorization", authz.String())
-
-	return nil
-}
-
-func createCanonicalRequest(r *http.Request) ([]byte, []string, error) {
+	// create canonical request
 	var crb bytes.Buffer // canonical request buffer
 
 	// 1
@@ -163,7 +131,7 @@ func createCanonicalRequest(r *http.Request) ([]byte, []string, error) {
 	// 3
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
-		return nil, nil, err
+		return err
 	}
 	keys := make([]string, 0, len(query))
 	for i := range query {
@@ -228,10 +196,12 @@ func createCanonicalRequest(r *http.Request) ([]byte, []string, error) {
 	var hashed [sha256.Size]byte
 	crb.Write(toHex(hash.Sum(hashed[:0])))
 
-	return crb.Bytes(), headers, nil
-}
-
-func createStringToSign(cr []byte, date, cs string) ([]byte, error) {
+	// create string to sign
+	// TODO when date doesn't exist it will be created so test isn't needed
+	date, ok := r.Header["Date"]
+	if !ok || len(date) == 0 {
+		return errors.New("no date")
+	}
 	var sts bytes.Buffer
 
 	// 1
@@ -239,21 +209,37 @@ func createStringToSign(cr []byte, date, cs string) ([]byte, error) {
 
 	// 2
 	// TODO if creating data don't reparse
-	d, err := time.Parse(time.RFC1123, date)
+	d, err := time.Parse(time.RFC1123, date[0])
 	if err != nil {
-		return nil, err
+		return err
 	}
 	sts.WriteString(d.Format(iSO8601BasicFormat) + "\n")
 
 	// 3
-	sts.WriteString(cs)
+	sts.WriteString(s.access)
 	sts.WriteByte('\n')
 
 	// 4
-	hash := sha256.New()
-	hash.Write(cr)
-	var hashed [sha256.Size]byte
+	hash.Reset()
+	hash.Write(crb.Bytes())
 	sts.Write(toHex(hash.Sum(hashed[:0])))
 
-	return sts.Bytes(), nil
+	// sign string and write to authorization header
+	var authz bytes.Buffer
+	authz.WriteString("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
+	authz.WriteString(s.access)
+	authz.WriteString(", SignedHeaders=")
+	for i := range headers {
+		if i > 0 {
+			authz.WriteByte(';')
+		}
+		authz.WriteString(headers[i])
+	}
+	authz.WriteString(", Signature=")
+	h := hmac.New(sha256.New, s.hash[:])
+	h.Write(sts.Bytes())
+	authz.Write(toHex(h.Sum(nil)))
+	r.Header.Add("Authorization", authz.String())
+
+	return nil
 }
