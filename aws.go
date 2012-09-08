@@ -184,7 +184,9 @@ func (s *Signature) Sign(r *http.Request) error {
 
 	// 6
 	hash := sha256.New()
-	io.Copy(hash, r.Body)
+	if r.Body != nil {
+		io.Copy(hash, r.Body)
+	}
 	var hashed [sha256.Size]byte
 	crb.Write(toHex(hash.Sum(hashed[:0])))
 
