@@ -122,93 +122,65 @@ func (s *Signature) signStringToSign(sts []byte) []byte {
 func createCanonicalRequest(r *http.Request) ([]byte, []string, error) {
 	var crb bytes.Buffer // canonical request buffer
 
-	crb.WriteString(r.Method + "\n")
+	// 1
+	crb.WriteString(r.Method)
+	crb.WriteByte('\n')
 
 	// 2
-	// go's path.Clean will remove the trailing slash, if one exists, check if
-	// it will need to be readded
-	var ts bool
-	if r.URL.Path[len(r.URL.Path)-1] == '/' {
-		for i := len(r.URL.Path) - 2; i > 0; i-- {
-			if r.URL.Path[i] != '/' && r.URL.Path[i] != '.' {
-				ts = true
-				break
-			}
-		}
-	}
-	var cp string // canonical path
+	var cp bytes.Buffer // canonical path
 	parts := strings.Split(path.Clean(r.URL.Path)[1:], "/")
 	for i := range parts {
-		cp += "/" + encode(parts[i])
+		cp.WriteByte('/')
+		cp.WriteString(encode(parts[i]))
 	}
-	if ts {
-		cp += "/"
-	}
-	_, err = crb.WriteString(cp)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = crb.WriteByte('\n')
-	if err != nil {
-		return nil, nil, err
-	}
+	crb.Write(cp.Bytes())
+	crb.WriteByte('\n')
 
 	// 3
-	// TODO another buffer to avoid all the string allocation
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
 		return nil, nil, err
 	}
-	keys := make([]string, 0)
+	keys := make([]string, 0, len(query))
 	for i := range query {
 		keys = append(keys, i)
 	}
 	sort.Strings(keys)
-	var cqs string // canonical query string
+	var cqs bytes.Buffer // canonical query string
 	for i := range keys {
 		if i > 0 {
-			cqs = cqs + "&"
+			cqs.WriteByte('&')
 		}
 		parameters := query[keys[i]]
 		sort.Strings(parameters)
 		for j := range parameters {
 			if j > 0 {
-				cqs = cqs + "&"
+				cqs.WriteByte('&')
 			}
-			cqs = cqs + encode(keys[i]) + "=" + encode(parameters[j])
+			cqs.WriteString(encode(keys[i]))
+			cqs.WriteByte('=')
+			cqs.WriteString(encode(parameters[j]))
 		}
 	}
-	if len(cqs) > 0 {
-		_, err = crb.WriteString(cqs)
-		if err != nil {
-			return nil, nil, err
-		}
+	if cqs.Len() > 0 {
+		crb.Write(cqs.Bytes())
 	}
-	err = crb.WriteByte('\n')
-	if err != nil {
-		return nil, nil, err
-	}
+	crb.WriteByte('\n')
 
 	// 4
 	// TODO check for date and add if required
-	headers := make([]string, 0)
+	headers := make([]string, 0, len(r.Header)+1)
 	headersMap := make(map[string]string)
 	for i := range r.Header {
-		header := strings.ToLower(strings.TrimSpace(i))
+		header := strings.ToLower(i)
 		headers = append(headers, header)
 		headersMap[header] = i
 	}
 	headers = append(headers, "host")
 	sort.Strings(headers)
 	for i := range headers {
-		_, err = crb.WriteString(headers[i])
-		if err != nil {
-			return nil, nil, err
-		}
-		err = crb.WriteByte(':')
-		if err != nil {
-			return nil, nil, err
-		}
+		crb.WriteString(headers[i])
+		crb.WriteByte(':')
 		var value string
 		if headers[i] == "host" {
 			value = r.Host
@@ -217,38 +189,20 @@ func createCanonicalRequest(r *http.Request) ([]byte, []string, error) {
 			sort.Strings(values)
 			value = strings.Join(values, ",")
 		}
-		_, err := crb.WriteString(value)
-		err = crb.WriteByte('\n')
-		if err != nil {
-			return nil, nil, err
-		}
+		crb.WriteString(value)
+		crb.WriteByte('\n')
 	}
-	err = crb.WriteByte('\n')
-	if err != nil {
-		return nil, nil, err
-	}
+	crb.WriteByte('\n')
 
 	// 5
-	_, err = crb.WriteString(strings.Join(headers, ";"))
-	if err != nil {
-		return nil, nil, err
-	}
-	err = crb.WriteByte('\n')
-	if err != nil {
-		return nil, nil, err
-	}
+	crb.WriteString(strings.Join(headers, ";"))
+	crb.WriteByte('\n')
 
 	// 6
 	hash := sha256.New()
-	_, err = io.Copy(hash, r.Body)
-	if err != nil {
-		return nil, nil, err
-	}
+	io.Copy(hash, r.Body)
 	var hashed [sha256.Size]byte
-	_, err = fmt.Fprintf(&crb, "%x", hash.Sum(hashed[:0]))
-	if err != nil {
-		return nil, nil, err
-	}
+	crb.Write(toLcHex(hash.Sum(hashed[:0])))
 
 	return crb.Bytes(), headers, nil
 }
@@ -270,23 +224,23 @@ func CreateCanonicalRequest(r *http.Request) ([]byte, []string, error) {
 	// 2
 	// go's path.Clean will remove the trailing slash, if one exists, check if
 	// it will need to be readded
-	var ts bool
-	if r.URL.Path[len(r.URL.Path)-1] == '/' {
-		for i := len(r.URL.Path) - 2; i > 0; i-- {
-			if r.URL.Path[i] != '/' && r.URL.Path[i] != '.' {
-				ts = true
-				break
-			}
-		}
-	}
+	// var ts bool
+	// if r.URL.Path[len(r.URL.Path)-1] == '/' {
+	// 	for i := len(r.URL.Path) - 2; i > 0; i-- {
+	// 		if r.URL.Path[i] != '/' && r.URL.Path[i] != '.' {
+	// 			ts = true
+	// 			break
+	// 		}
+	// 	}
+	// }
 	var cp string // canonical path
 	parts := strings.Split(path.Clean(r.URL.Path)[1:], "/")
 	for i := range parts {
 		cp += "/" + encode(parts[i])
 	}
-	if ts {
-		cp += "/"
-	}
+	// if ts {
+	// 	cp += "/"
+	// }
 	_, err = crb.WriteString(cp)
 	if err != nil {
 		return nil, nil, err
