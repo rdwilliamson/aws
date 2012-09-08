@@ -19,48 +19,40 @@ var (
 )
 
 type v4TestFiles struct {
-	base  string
-	req   []byte
-	creq  []byte
-	sts   []byte
-	authz []byte
-	sreq  []byte
+	base string
+	req  []byte
+	sreq []byte
 
 	request *http.Request
 	body    io.ReadSeeker
 }
 
-// http://docs.amazonwebservices.com/general/latest/gr/signature-v4-test-suite.html
-func testFiles(dir string) ([]string, error) {
-	d, err := os.Open(dir)
+func readTestFiles(t *testing.T) chan *v4TestFiles {
+	d, err := os.Open(v4dir)
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
 	f, err := d.Readdirnames(0)
 	if err != nil {
-		return nil, err
+		t.Fatal(err)
 	}
 
 	sort.Strings(f)
 
-	tests := make([]string, 0)
+	files := make([]string, 0)
 	for i := 0; i < len(f)-4; {
 		if filepath.Ext(f[i]) == ".authz" &&
 			filepath.Ext(f[i+1]) == ".creq" &&
 			filepath.Ext(f[i+2]) == ".req" &&
 			filepath.Ext(f[i+3]) == ".sreq" &&
 			filepath.Ext(f[i+4]) == ".sts" {
-			tests = append(tests, f[i][:len(f[i])-6])
+			files = append(files, f[i][:len(f[i])-6])
 			i += 5
 		} else {
 			i++
 		}
 	}
 
-	return tests, nil
-}
-
-func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 	ch := make(chan *v4TestFiles)
 	go func() {
 		for _, f := range files {
@@ -97,24 +89,6 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 				}
 			}
 
-			d.creq, err = ioutil.ReadFile(v4dir + "/" + f + ".creq")
-			if err != nil {
-				t.Error("reading", d.base, err)
-				continue
-			}
-
-			d.sts, err = ioutil.ReadFile(v4dir + "/" + f + ".sts")
-			if err != nil {
-				t.Error("reading", d.base, err)
-				continue
-			}
-
-			d.authz, err = ioutil.ReadFile(v4dir + "/" + f + ".authz")
-			if err != nil {
-				t.Error("reading", d.base, err)
-				continue
-			}
-
 			d.sreq, err = ioutil.ReadFile(v4dir + "/" + f + ".sreq")
 			if err != nil {
 				t.Error("reading", d.base, err)
@@ -130,68 +104,11 @@ func readTestFiles(files []string, t *testing.T) chan *v4TestFiles {
 
 func TestSignatureVersion4(t *testing.T) {
 	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
-
 	signature := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
 		"20110909/us-east-1/host/aws4_request", date, USEast, "host")
 
-	files, err := testFiles(v4dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tests := readTestFiles(files, t)
-	// var headers []string
-	// var cr []byte
+	tests := readTestFiles(t)
 	for f := range tests {
-		// cr, headers, err = createCanonicalRequest(f.request)
-		// if err != nil {
-		// 	t.Error(f.base, err)
-		// 	continue
-		// }
-		// if !bytes.Equal(cr, f.creq) {
-		// 	t.Error(f.base, "canonical request")
-		// 	t.Logf("got:\n%s", string(cr))
-		// 	t.Logf("want:\n%s", string(f.creq))
-		// 	continue
-		// }
-
-		// var sts []byte
-		// date, ok := f.request.Header["Date"]
-		// if ok && len(date) > 0 {
-		// 	sts, err = createStringToSign(cr, date[0], v4CredentialScope)
-		// 	if err != nil {
-		// 		t.Error(f.base, err)
-		// 		continue
-		// 	}
-		// 	if !bytes.Equal(sts, f.sts) {
-		// 		t.Error(f.base, "string to sign")
-		// 		t.Logf("got:\n%s", string(sts))
-		// 		t.Logf("want:\n%s", string(f.sts))
-		// 		continue
-		// 	}
-		// } else {
-		// 	t.Error(f.base, "no date")
-		// 	t.Log(f.request)
-		// 	continue
-		// }
-
-		// sig := signature.signStringToSign(sts)
-		// authz := []byte("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
-		// authz = append(authz, v4CredentialScope...)
-		// authz = append(authz, ", SignedHeaders="...)
-		// for i := range headers {
-		// 	if i > 0 {
-		// 		authz = append(authz, ';')
-		// 	}
-		// 	authz = append(authz, headers[i]...)
-		// }
-		// authz = append(authz, ", Signature="...)
-		// authz = append(authz, sig...)
-		// if !bytes.Equal(authz, f.authz) {
-		// 	t.Error(f.base, "signed signature")
-		// 	t.Logf("got:\n%s", authz)
-		// 	t.Logf("want:\n%s", f.authz)
-		// }
-
 		err := signature.Sign(f.request)
 		if err != nil {
 			t.Error(err)
