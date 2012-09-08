@@ -122,9 +122,8 @@ func (s *Signature) Sign(r *http.Request) error {
 	} else {
 		return errors.New("no date")
 	}
-	sig := s.signStringToSign(sts)
 
-	// authorization header
+	// sign string and write to authorization header
 	var authz bytes.Buffer
 	authz.WriteString("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
 	authz.WriteString(s.access)
@@ -136,16 +135,12 @@ func (s *Signature) Sign(r *http.Request) error {
 		authz.WriteString(headers[i])
 	}
 	authz.WriteString(", Signature=")
-	authz.Write(sig)
+	h := hmac.New(sha256.New, s.hash[:])
+	h.Write(sts)
+	authz.Write(toHex(h.Sum(nil)))
 	r.Header.Add("Authorization", authz.String())
 
 	return nil
-}
-
-func (s *Signature) signStringToSign(sts []byte) []byte {
-	h := hmac.New(sha256.New, s.hash[:])
-	h.Write(sts)
-	return toHex(h.Sum(nil))
 }
 
 func createCanonicalRequest(r *http.Request) ([]byte, []string, error) {
