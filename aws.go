@@ -87,32 +87,37 @@ func KeysFromEnviroment() *Keys {
 // secret key.
 type Signature struct {
 	AccessID   string
-	SigningKey [sha256.Size]byte
 	Date       string
 	Region     *Region
 	Service    string
+	SigningKey [sha256.Size]byte
 }
 
-// NewSignature creates a new signature from the passed keys, time, region, and
+// NewSignature creates a new signature from the passed keys, region, and
 // service.
-func NewSignature(k *Keys, t time.Time, r *Region, service string) *Signature {
+func NewSignature(k *Keys, r *Region, service string) *Signature {
 	var s Signature
 
 	s.AccessID = k.AccessID
-	s.Date = t.Format(ISO8601BasicFormatShort)
+	s.Date = time.Now().UTC().Format(ISO8601BasicFormatShort)
 	s.Region = r
 	s.Service = service
+	s.generateSigningKey(k)
 
+	return &s
+}
+
+// separate function so that test suite can set a custom date
+func (s *Signature) generateSigningKey(k *Keys) {
 	h := hmac.New(sha256.New, []byte("AWS4"+k.Secret))
 	h.Write([]byte(s.Date))
 	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
-	h.Write([]byte(r.Name))
+	h.Write([]byte(s.Region.Name))
 	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
-	h.Write([]byte(service))
+	h.Write([]byte(s.Service))
 	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
 	h.Write([]byte("aws4_request"))
 	h.Sum(s.SigningKey[:0])
-	return &s
 }
 
 // Sign uses signature s to sign the HTTP request. It sets the Authorization

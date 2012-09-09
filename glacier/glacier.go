@@ -3,7 +3,6 @@ package glacier
 import (
 	"../../aws"
 	"net/http"
-	"time"
 )
 
 var (
@@ -19,8 +18,7 @@ type GlacierConnection struct {
 
 func NewGlacierConnection(k *aws.Keys, r *aws.Region) *GlacierConnection {
 	// TODO a go routine to create a new signature when the date changes?
-	return &GlacierConnection{defaultClient, aws.NewSignature(k,
-		time.Now().UTC(), r, "glacier")}
+	return &GlacierConnection{defaultClient, aws.NewSignature(k, r, "glacier")}
 }
 
 // TODO method to log things such as x-amzn-RequestId
