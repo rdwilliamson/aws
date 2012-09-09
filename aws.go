@@ -103,7 +103,8 @@ func NewSignature(k *Keys, t time.Time, r *Region, service string) *Signature {
 
 func (s *Signature) Sign(r *http.Request, access string) error {
 	// TODO check all error cases first
-	// TODO compare request date to signature date (will require storing it)
+	// TODO compare request date to signature date? or have signature update
+	// when it expires? or have whatever is using signature check it?
 
 	// create canonical request
 	var crb bytes.Buffer // canonical request buffer
@@ -193,28 +194,25 @@ func (s *Signature) Sign(r *http.Request, access string) error {
 	crb.Write(toHex(hash.Sum(hashed[:0])))
 
 	// create string to sign
-	// TODO when date doesn't exist it will be created so test isn't needed
-	date, ok := r.Header["Date"]
-	if !ok || len(date) == 0 {
-		r.Header.Set("Date", time.Now().Format(time.RFC3339))
-		date, _ = r.Header["Date"]
-		// return errors.New("no date")
-	}
 	var sts bytes.Buffer
 
 	// 1
 	sts.WriteString("AWS4-HMAC-SHA256\n")
 
 	// 2
-	// TODO if creating data don't reparse
-	d, err := time.Parse(time.RFC1123, date[0])
-	if err != nil {
-		d, err = time.Parse(time.RFC3339, date[0])
+	var dateTime time.Time
+	dates, ok := r.Header["Date"]
+	if !ok || len(dates) < 1 {
+		dateTime = time.Now().UTC()
+		r.Header.Set("Date", dateTime.Format(time.RFC3339))
+	} else {
+		dateTime, err = time.Parse(time.RFC1123, dates[0])
 		if err != nil {
 			return err
 		}
 	}
-	sts.WriteString(d.UTC().Format(ISO8601BasicFormat) + "\n")
+	sts.WriteString(dateTime.Format(ISO8601BasicFormat))
+	sts.WriteByte('\n')
 
 	// 3
 	sts.WriteString(access)
@@ -241,7 +239,8 @@ func (s *Signature) Sign(r *http.Request, access string) error {
 	authz.WriteString(", Signature=")
 	h := hmac.New(sha256.New, s.hash[:])
 	h.Write(sts.Bytes())
-	authz.Write(toHex(h.Sum(nil)))
+	authz.Write(toHex(h.Sum(hashed[:0])))
+
 	r.Header.Add("Authorization", authz.String())
 
 	return nil
