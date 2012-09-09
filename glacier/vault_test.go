@@ -1,8 +1,8 @@
 package glacier
 
 import (
-	"../../aws"
 	"fmt"
+	"github.com/rdwilliamson/aws"
 	"testing"
 )
 

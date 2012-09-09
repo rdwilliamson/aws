@@ -1,7 +1,7 @@
 package glacier
 
 import (
-	"../../aws"
+	"github.com/rdwilliamson/aws"
 	"net/http"
 )
 

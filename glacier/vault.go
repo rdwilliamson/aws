@@ -1,9 +1,9 @@
 package glacier
 
 import (
-	"../../aws"
 	"encoding/json"
 	"errors"
+	"github.com/rdwilliamson/aws"
 	"io/ioutil"
 	"net/http"
 	"time"
