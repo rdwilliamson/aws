@@ -72,15 +72,10 @@ func toHex(x []byte) []byte {
 	return z
 }
 
-// Keys contains thr secret and access ID keys for a user.
-type Keys struct {
-	Secret   string
-	AccessID string
-}
-
-// Get user keys from enviroment variables AWS_SECRET_KEY and AWS_ACCESS_KEY.
-func KeysFromEnviroment() *Keys {
-	return &Keys{os.Getenv("AWS_SECRET_KEY"), os.Getenv("AWS_ACCESS_KEY")}
+// Get secret and access ID keys (in that order) from enviroment variables
+// AWS_SECRET_KEY and AWS_ACCESS_KEY.
+func KeysFromEnviroment() (string, string) {
+	return os.Getenv("AWS_SECRET_KEY"), os.Getenv("AWS_ACCESS_KEY")
 }
 
 // Signature contains the access ID key and the signing key derived from the
@@ -95,21 +90,21 @@ type Signature struct {
 
 // NewSignature creates a new signature from the passed keys, region, and
 // service.
-func NewSignature(k *Keys, r *Region, service string) *Signature {
+func NewSignature(secret, access string, r *Region, service string) *Signature {
 	var s Signature
 
-	s.AccessID = k.AccessID
+	s.AccessID = access
 	s.Date = time.Now().UTC().Format(ISO8601BasicFormatShort)
 	s.Region = r
 	s.Service = service
-	s.generateSigningKey(k)
+	s.generateSigningKey(secret)
 
 	return &s
 }
 
 // separate function so that test suite can set a custom date
-func (s *Signature) generateSigningKey(k *Keys) {
-	h := hmac.New(sha256.New, []byte("AWS4"+k.Secret))
+func (s *Signature) generateSigningKey(secret string) {
+	h := hmac.New(sha256.New, []byte("AWS4"+secret))
 	h.Write([]byte(s.Date))
 	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
 	h.Write([]byte(s.Region.Name))

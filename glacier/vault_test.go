@@ -7,7 +7,8 @@ import (
 )
 
 func TestList(t *testing.T) {
-	connection := NewGlacierConnection(aws.KeysFromEnviroment(), aws.USEast)
+	secret, access := aws.KeysFromEnviroment()
+	connection := NewGlacierConnection(secret, access, aws.USEast)
 	_, result, err := connection.ListVaults(1000, "")
 	if err != nil {
 		t.Fatal(err)

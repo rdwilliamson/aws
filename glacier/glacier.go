@@ -16,9 +16,10 @@ type GlacierConnection struct {
 	Signature *aws.Signature
 }
 
-func NewGlacierConnection(k *aws.Keys, r *aws.Region) *GlacierConnection {
+func NewGlacierConnection(secret, access string, r *aws.Region) *GlacierConnection {
 	// TODO a go routine to create a new signature when the date changes?
-	return &GlacierConnection{defaultClient, aws.NewSignature(k, r, "glacier")}
+	return &GlacierConnection{defaultClient, aws.NewSignature(secret, access,
+		r, "glacier")}
 }
 
 // TODO method to log things such as x-amzn-RequestId
