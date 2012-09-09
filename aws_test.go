@@ -26,7 +26,7 @@ func TestSignature(t *testing.T) {
 
 	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
 	signature := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-		"20110909/us-east-1/host/aws4_request", date, USEast, "host")
+		"AKIDEXAMPLE", date, USEast, "host")
 	dir := "aws4_testsuite"
 
 	d, err := os.Open(dir)
@@ -96,7 +96,8 @@ func TestSignature(t *testing.T) {
 	}
 
 	for _, f := range tests {
-		err := signature.Sign(f.request)
+		err := signature.Sign(f.request,
+			"20110909/us-east-1/host/aws4_request")
 		if err != nil {
 			t.Error(err)
 			continue
@@ -134,7 +135,7 @@ func BenchmarkNewSignature(b *testing.B) {
 	t := time.Now()
 	for i := 0; i < b.N; i++ {
 		_ = NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-			"20110909/us-east-1/host/aws4_request", t, USEast, "service")
+			"AKIDEXAMPLE", t, USEast, "service")
 	}
 }
 
@@ -142,7 +143,7 @@ func BenchmarkSignatureSign(b *testing.B) {
 	b.StopTimer()
 	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
 	signature := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-		"20110909/us-east-1/host/aws4_request", date, USEast, "service")
+		"AKIDEXAMPLE", date, USEast, "service")
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -164,6 +165,7 @@ foo=bar`)
 			request.Body = ioutil.NopCloser(body)
 		}
 		b.StartTimer()
-		_ = signature.Sign(request)
+		_ = signature.Sign(request,
+			"20110909/us-east-1/host/aws4_request")
 	}
 }

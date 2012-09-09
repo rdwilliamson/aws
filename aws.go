@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
-	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -15,8 +15,10 @@ import (
 )
 
 const (
-	iSO8601BasicFormat      = "20060102T150405Z"
-	iSO8601BasicFormatShort = "20060102"
+	debug = true
+
+	ISO8601BasicFormat      = "20060102T150405Z"
+	ISO8601BasicFormatShort = "20060102"
 )
 
 var (
@@ -72,13 +74,6 @@ func toHex(x []byte) []byte {
 	return z
 }
 
-type Region struct {
-	Region string // human readable name
-	Name   string // canonical name
-	// TODO CloudFormation Endpoint, CloundFront Endpoint etc.
-	Glacier string
-}
-
 type Signature struct {
 	access string
 	hash   [sha256.Size]byte
@@ -87,7 +82,7 @@ type Signature struct {
 func NewSignature(secret, access string, t time.Time, r *Region, service string) *Signature {
 	var s Signature
 	h := hmac.New(sha256.New, []byte("AWS4"+secret))
-	h.Write([]byte(t.Format(iSO8601BasicFormatShort)))
+	h.Write([]byte(t.Format(ISO8601BasicFormatShort)))
 	h = hmac.New(sha256.New, h.Sum(s.hash[:0]))
 	h.Write([]byte(r.Name))
 	h = hmac.New(sha256.New, h.Sum(s.hash[:0]))
@@ -99,7 +94,7 @@ func NewSignature(secret, access string, t time.Time, r *Region, service string)
 	return &s
 }
 
-func (s *Signature) Sign(r *http.Request) error {
+func (s *Signature) Sign(r *http.Request, access string) error {
 	// TODO check all error cases first
 	// TODO compare request date to signature date (will require storing it)
 
@@ -190,11 +185,19 @@ func (s *Signature) Sign(r *http.Request) error {
 	var hashed [sha256.Size]byte
 	crb.Write(toHex(hash.Sum(hashed[:0])))
 
+	if debug {
+		fmt.Println("canonical request buffer")
+		fmt.Println(crb.String())
+		fmt.Println()
+	}
+
 	// create string to sign
 	// TODO when date doesn't exist it will be created so test isn't needed
 	date, ok := r.Header["Date"]
 	if !ok || len(date) == 0 {
-		return errors.New("no date")
+		r.Header.Set("Date", time.Now().Format(time.RFC3339))
+		date, _ = r.Header["Date"]
+		// return errors.New("no date")
 	}
 	var sts bytes.Buffer
 
@@ -205,12 +208,15 @@ func (s *Signature) Sign(r *http.Request) error {
 	// TODO if creating data don't reparse
 	d, err := time.Parse(time.RFC1123, date[0])
 	if err != nil {
-		return err
+		d, err = time.Parse(time.RFC3339, date[0])
+		if err != nil {
+			return err
+		}
 	}
-	sts.WriteString(d.Format(iSO8601BasicFormat) + "\n")
+	sts.WriteString(d.UTC().Format(ISO8601BasicFormat) + "\n")
 
 	// 3
-	sts.WriteString(s.access)
+	sts.WriteString(access)
 	sts.WriteByte('\n')
 
 	// 4
@@ -218,10 +224,18 @@ func (s *Signature) Sign(r *http.Request) error {
 	hash.Write(crb.Bytes())
 	sts.Write(toHex(hash.Sum(hashed[:0])))
 
+	if debug {
+		fmt.Println("string to sign")
+		fmt.Println(sts.String())
+		fmt.Println()
+	}
+
 	// sign string and write to authorization header
 	var authz bytes.Buffer
-	authz.WriteString("AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/")
+	authz.WriteString("AWS4-HMAC-SHA256 Credential=")
 	authz.WriteString(s.access)
+	authz.WriteByte('/')
+	authz.WriteString(access)
 	authz.WriteString(", SignedHeaders=")
 	for i := range headers {
 		if i > 0 {
