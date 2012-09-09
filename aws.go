@@ -72,39 +72,60 @@ func toHex(x []byte) []byte {
 	return z
 }
 
+// Keys contains thr secret and access ID keys for a user.
 type Keys struct {
-	Secret string
-	Access string
+	Secret   string
+	AccessID string
 }
 
+// Get user keys from enviroment variables AWS_SECRET_KEY and AWS_ACCESS_KEY.
 func KeysFromEnviroment() *Keys {
 	return &Keys{os.Getenv("AWS_SECRET_KEY"), os.Getenv("AWS_ACCESS_KEY")}
 }
 
+// Signature contains the access ID key and the signing key derived from the
+// secret key.
 type Signature struct {
-	Access string
-	Hash   [sha256.Size]byte
+	AccessID   string
+	SigningKey [sha256.Size]byte
+	Date       string
+	Region     *Region
+	Service    string
 }
 
+// NewSignature creates a new signature from the passed keys, time, region, and
+// service.
 func NewSignature(k *Keys, t time.Time, r *Region, service string) *Signature {
 	var s Signature
+
+	s.AccessID = k.AccessID
+	s.Date = t.Format(ISO8601BasicFormatShort)
+	s.Region = r
+	s.Service = service
+
 	h := hmac.New(sha256.New, []byte("AWS4"+k.Secret))
-	h.Write([]byte(t.Format(ISO8601BasicFormatShort)))
-	h = hmac.New(sha256.New, h.Sum(s.Hash[:0]))
+	h.Write([]byte(s.Date))
+	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
 	h.Write([]byte(r.Name))
-	h = hmac.New(sha256.New, h.Sum(s.Hash[:0]))
+	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
 	h.Write([]byte(service))
-	h = hmac.New(sha256.New, h.Sum(s.Hash[:0]))
+	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
 	h.Write([]byte("aws4_request"))
-	h.Sum(s.Hash[:0])
-	s.Access = k.Access
+	h.Sum(s.SigningKey[:0])
 	return &s
 }
 
-func (s *Signature) Sign(r *http.Request, access string) error {
+// Sign uses signature s to sign the HTTP request. It sets the Authorization
+// header and sets/overwrites the Date header with now.
+// If the signature was created on a different UTC day the signing will be
+// invalid.
+func (s *Signature) Sign(r *http.Request) error {
 	// TODO check all error cases first
 	// TODO compare request date to signature date? or have signature update
 	// when it expires? or have whatever is using signature check it?
+
+	credential := s.Date + "/" + s.Region.Name + "/" + s.Service +
+		"/aws4_request"
 
 	// create canonical request
 	var crb bytes.Buffer // canonical request buffer
@@ -200,10 +221,12 @@ func (s *Signature) Sign(r *http.Request, access string) error {
 	sts.WriteString("AWS4-HMAC-SHA256\n")
 
 	// 2
+	// TODO parsing dates just to pass test suite, implement such that the date
+	// is just overwritten if it exists
 	var dateTime time.Time
 	dates, ok := r.Header["Date"]
 	if !ok || len(dates) < 1 {
-		dateTime = time.Now().UTC()
+		dateTime = time.Now().UTC() // TODO could be differnt day than signature
 		r.Header.Set("Date", dateTime.Format(time.RFC3339))
 	} else {
 		dateTime, err = time.Parse(time.RFC1123, dates[0])
@@ -215,7 +238,7 @@ func (s *Signature) Sign(r *http.Request, access string) error {
 	sts.WriteByte('\n')
 
 	// 3
-	sts.WriteString(access)
+	sts.WriteString(credential)
 	sts.WriteByte('\n')
 
 	// 4
@@ -226,9 +249,9 @@ func (s *Signature) Sign(r *http.Request, access string) error {
 	// sign string and write to authorization header
 	var authz bytes.Buffer
 	authz.WriteString("AWS4-HMAC-SHA256 Credential=")
-	authz.WriteString(s.Access)
+	authz.WriteString(s.AccessID)
 	authz.WriteByte('/')
-	authz.WriteString(access)
+	authz.WriteString(credential)
 	authz.WriteString(", SignedHeaders=")
 	for i := range headers {
 		if i > 0 {
@@ -237,7 +260,7 @@ func (s *Signature) Sign(r *http.Request, access string) error {
 		authz.WriteString(headers[i])
 	}
 	authz.WriteString(", Signature=")
-	h := hmac.New(sha256.New, s.Hash[:])
+	h := hmac.New(sha256.New, s.SigningKey[:])
 	h.Write(sts.Bytes())
 	authz.Write(toHex(h.Sum(hashed[:0])))
 

@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// A vault is a container for storing archives.
 type Vault struct {
 	CreationDate      time.Time
 	LastInventoryDate time.Time
@@ -18,6 +19,7 @@ type Vault struct {
 	VaultName         string
 }
 
+// used for unmarshaling json
 type vault struct {
 	CreationDate      string
 	LastInventoryDate *string
@@ -51,9 +53,7 @@ func (gc *GlacierConnection) ListVaults(limit int, marker string) (string, []Vau
 		request.Header.Add("marker", "")
 	}
 
-	access := time.Now().UTC().Format(aws.ISO8601BasicFormatShort) + "/" +
-		gc.Region.Name + "/glacier/aws4_request"
-	err = gc.Signature.Sign(request, access)
+	err = gc.Signature.Sign(request)
 	if err != nil {
 		return "", nil, err
 	}

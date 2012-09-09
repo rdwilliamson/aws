@@ -10,15 +10,16 @@ var (
 	defaultClient http.Client
 )
 
+// A GlacierConnection stores and reuses a connection to an Amazon region for
+// a user.
 type GlacierConnection struct {
 	Client    http.Client
-	Region    *aws.Region
 	Signature *aws.Signature
 }
 
 func NewGlacierConnection(k *aws.Keys, r *aws.Region) *GlacierConnection {
 	// TODO a go routine to create a new signature when the date changes?
-	return &GlacierConnection{defaultClient, r, aws.NewSignature(k,
+	return &GlacierConnection{defaultClient, aws.NewSignature(k,
 		time.Now().UTC(), r, "glacier")}
 }
 

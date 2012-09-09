@@ -96,8 +96,7 @@ func TestSignature(t *testing.T) {
 	}
 
 	for _, f := range tests {
-		err := signature.Sign(f.request,
-			"20110909/us-east-1/host/aws4_request")
+		err := signature.Sign(f.request)
 		if err != nil {
 			t.Error(err)
 			continue
@@ -165,7 +164,6 @@ foo=bar`)
 			request.Body = ioutil.NopCloser(body)
 		}
 		b.StartTimer()
-		_ = signature.Sign(request,
-			"20110909/us-east-1/host/aws4_request")
+		_ = signature.Sign(request)
 	}
 }
