@@ -82,22 +82,22 @@ func KeysFromEnviroment() *Keys {
 }
 
 type Signature struct {
-	access string
-	hash   [sha256.Size]byte
+	Access string
+	Hash   [sha256.Size]byte
 }
 
 func NewSignature(k *Keys, t time.Time, r *Region, service string) *Signature {
 	var s Signature
 	h := hmac.New(sha256.New, []byte("AWS4"+k.Secret))
 	h.Write([]byte(t.Format(ISO8601BasicFormatShort)))
-	h = hmac.New(sha256.New, h.Sum(s.hash[:0]))
+	h = hmac.New(sha256.New, h.Sum(s.Hash[:0]))
 	h.Write([]byte(r.Name))
-	h = hmac.New(sha256.New, h.Sum(s.hash[:0]))
+	h = hmac.New(sha256.New, h.Sum(s.Hash[:0]))
 	h.Write([]byte(service))
-	h = hmac.New(sha256.New, h.Sum(s.hash[:0]))
+	h = hmac.New(sha256.New, h.Sum(s.Hash[:0]))
 	h.Write([]byte("aws4_request"))
-	h.Sum(s.hash[:0])
-	s.access = k.Access
+	h.Sum(s.Hash[:0])
+	s.Access = k.Access
 	return &s
 }
 
@@ -226,7 +226,7 @@ func (s *Signature) Sign(r *http.Request, access string) error {
 	// sign string and write to authorization header
 	var authz bytes.Buffer
 	authz.WriteString("AWS4-HMAC-SHA256 Credential=")
-	authz.WriteString(s.access)
+	authz.WriteString(s.Access)
 	authz.WriteByte('/')
 	authz.WriteString(access)
 	authz.WriteString(", SignedHeaders=")
@@ -237,7 +237,7 @@ func (s *Signature) Sign(r *http.Request, access string) error {
 		authz.WriteString(headers[i])
 	}
 	authz.WriteString(", Signature=")
-	h := hmac.New(sha256.New, s.hash[:])
+	h := hmac.New(sha256.New, s.Hash[:])
 	h.Write(sts.Bytes())
 	authz.Write(toHex(h.Sum(hashed[:0])))
 
