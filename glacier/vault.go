@@ -2,76 +2,57 @@ package glacier
 
 import (
 	"../../aws"
-	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"time"
 )
 
-type Instance struct {
-	Signature *aws.Signature
-	Region    *aws.Region
-}
-
-func List() error {
-	keys := aws.KeysFromEnviroment()
-	if keys.Secret == "" || keys.Access == "" {
-		return errors.New("could not get keys from enviroment variables")
+func (gc *GlacierConnection) ListVaults(limit int, marker string) ([]byte, error) {
+	if limit < 1 || limit > 1000 {
+		return nil, errors.New("limit must be 1 through 1000")
 	}
-
-	signature := aws.NewSignature(keys, now, aws.USEast, "glacier")
-	access := now.Format(aws.ISO8601BasicFormatShort) + "/" + aws.USEast.Name +
-		"/glacier/aws4_request"
-
-	now := time.Now().UTC()
 
 	request, err := http.NewRequest("GET",
 		"https://"+aws.USEast.Glacier+"/-/vaults", nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = signature.Sign(request, access)
+	access := time.Now().UTC().Format(aws.ISO8601BasicFormatShort) + "/" +
+		gc.Region.Name + "/glacier/aws4_request"
+	err = gc.Signature.Sign(request, access)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	request.Write(os.Stdout)
-
-	var c http.Client
-	response, err := c.Do(request)
+	response, err := gc.Client.Do(request)
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 
-	fmt.Println(response)
+	// TODO log x-amzn-RequestId
+
 	body, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
+	}
+	err = response.Body.Close()
+	if err != nil {
+		return nil, err
 	}
 
 	if response.StatusCode != 200 {
 		var e aws.Error
-		err = json.Unmarshal(body[0:len(body)], &e)
+		err = json.Unmarshal(body, &e)
 		if err != nil {
-			fmt.Println(err)
+			return nil, err
 		}
-		fmt.Println(e.Code)
-		fmt.Println(e.Type)
-		fmt.Println(e.Message)
+		return nil, e
 	}
 
-	var indentedBody bytes.Buffer
-	json.Indent(&indentedBody, body, "", "\t")
-	fmt.Println(indentedBody.String())
-
-	fmt.Println()
-
-	return nil
+	// TODO unmarshal json into stuct
+	return body, nil
 }
