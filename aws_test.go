@@ -25,8 +25,8 @@ func TestSignature(t *testing.T) {
 	}
 
 	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
-	signature := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-		"AKIDEXAMPLE", date, USEast, "host")
+	keys := &Keys{"wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "AKIDEXAMPLE"}
+	signature := NewSignature(keys, date, USEast, "host")
 	dir := "aws4_testsuite"
 
 	d, err := os.Open(dir)
@@ -132,18 +132,18 @@ func TestSignature(t *testing.T) {
 }
 
 func BenchmarkNewSignature(b *testing.B) {
+	keys := &Keys{"wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "AKIDEXAMPLE"}
 	t := time.Now()
 	for i := 0; i < b.N; i++ {
-		_ = NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-			"AKIDEXAMPLE", t, USEast, "service")
+		_ = NewSignature(keys, t, USEast, "service")
 	}
 }
 
 func BenchmarkSignatureSign(b *testing.B) {
 	b.StopTimer()
+	keys := &Keys{"wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", "AKIDEXAMPLE"}
 	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
-	signature := NewSignature("wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY",
-		"AKIDEXAMPLE", date, USEast, "service")
+	signature := NewSignature(keys, date, USEast, "service")
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {

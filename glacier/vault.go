@@ -4,6 +4,7 @@ import (
 	"../../aws"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -17,19 +18,26 @@ type Instance struct {
 }
 
 func List() error {
-	request, err := http.NewRequest("GET", "https://"+aws.USEast.Glacier+"/-/vaults", nil)
-	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+	keys := aws.KeysFromEnviroment()
+	if keys.Secret == "" || keys.Access == "" {
+		return errors.New("could not get keys from enviroment variables")
+	}
+
+	signature := aws.NewSignature(keys, now, aws.USEast, "glacier")
+	access := now.Format(aws.ISO8601BasicFormatShort) + "/" + aws.USEast.Name +
+		"/glacier/aws4_request"
+
+	now := time.Now().UTC()
+
+	request, err := http.NewRequest("GET",
+		"https://"+aws.USEast.Glacier+"/-/vaults", nil)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
-	signature := aws.NewSignature("secret",
-		"access", time.Now().UTC(), aws.USEast, "glacier")
-	access := time.Now().UTC().Format(aws.ISO8601BasicFormatShort) + "/" +
-		aws.USEast.Name + "/glacier/aws4_request"
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
 	err = signature.Sign(request, access)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
 

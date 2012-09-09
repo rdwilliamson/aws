@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"sort"
 	"strings"
@@ -15,8 +15,6 @@ import (
 )
 
 const (
-	debug = true
-
 	ISO8601BasicFormat      = "20060102T150405Z"
 	ISO8601BasicFormatShort = "20060102"
 )
@@ -74,14 +72,23 @@ func toHex(x []byte) []byte {
 	return z
 }
 
+type Keys struct {
+	Secret string
+	Access string
+}
+
+func KeysFromEnviroment() *Keys {
+	return &Keys{os.Getenv("AWS_SECRET_KEY"), os.Getenv("AWS_ACCESS_KEY")}
+}
+
 type Signature struct {
 	access string
 	hash   [sha256.Size]byte
 }
 
-func NewSignature(secret, access string, t time.Time, r *Region, service string) *Signature {
+func NewSignature(k *Keys, t time.Time, r *Region, service string) *Signature {
 	var s Signature
-	h := hmac.New(sha256.New, []byte("AWS4"+secret))
+	h := hmac.New(sha256.New, []byte("AWS4"+k.Secret))
 	h.Write([]byte(t.Format(ISO8601BasicFormatShort)))
 	h = hmac.New(sha256.New, h.Sum(s.hash[:0]))
 	h.Write([]byte(r.Name))
@@ -90,7 +97,7 @@ func NewSignature(secret, access string, t time.Time, r *Region, service string)
 	h = hmac.New(sha256.New, h.Sum(s.hash[:0]))
 	h.Write([]byte("aws4_request"))
 	h.Sum(s.hash[:0])
-	s.access = access
+	s.access = k.Access
 	return &s
 }
 
@@ -185,12 +192,6 @@ func (s *Signature) Sign(r *http.Request, access string) error {
 	var hashed [sha256.Size]byte
 	crb.Write(toHex(hash.Sum(hashed[:0])))
 
-	if debug {
-		fmt.Println("canonical request buffer")
-		fmt.Println(crb.String())
-		fmt.Println()
-	}
-
 	// create string to sign
 	// TODO when date doesn't exist it will be created so test isn't needed
 	date, ok := r.Header["Date"]
@@ -223,12 +224,6 @@ func (s *Signature) Sign(r *http.Request, access string) error {
 	hash.Reset()
 	hash.Write(crb.Bytes())
 	sts.Write(toHex(hash.Sum(hashed[:0])))
-
-	if debug {
-		fmt.Println("string to sign")
-		fmt.Println(sts.String())
-		fmt.Println()
-	}
 
 	// sign string and write to authorization header
 	var authz bytes.Buffer
