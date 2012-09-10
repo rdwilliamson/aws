@@ -72,6 +72,7 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 				fmt.Printf("%x (%d -> %d %d)\n", hashes[outIndex-1].Hash[:4], outIndex-1, childIndex, remainderIndex)
 				remainderIndex = -1
 				added++
+				childIndex++
 			}
 		}
 	}

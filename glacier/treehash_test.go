@@ -58,6 +58,19 @@ func TestTreeHash(t *testing.T) {
 	}
 
 	in.Reset()
+	for i := 0; i < MiB*3; i++ {
+		in.WriteByte('a')
+	}
+	out9 := "d96d417c167a3bef2eaab2e637095834c2023e867f8287b6e5aa4da66eb0a555"
+	tree, err = createTreeHash(&in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(toHex(tree.Hash[:])); got != out9 {
+		t.Fatal("wanted:", out9, "got:", got)
+	}
+
+	in.Reset()
 	for i := 0; i < MiB*2; i++ {
 		in.WriteByte('a')
 	}
@@ -95,5 +108,18 @@ func TestTreeHash(t *testing.T) {
 	}
 	if got := string(toHex(tree.Hash[:])); got != out7 {
 		t.Fatal("wanted:", out7, "got:", got)
+	}
+
+	in.Reset()
+	for i := 0; i < MiB*7; i++ {
+		in.WriteByte('a')
+	}
+	out8 := "3ff5623fb1ab0ef60adab85d698aa03560d24890e51d7d69d3296dccfb774ac7"
+	tree, err = createTreeHash(&in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(toHex(tree.Hash[:])); got != out8 {
+		t.Fatal("wanted:", out8, "got:", got)
 	}
 }
