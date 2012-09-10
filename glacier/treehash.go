@@ -20,16 +20,16 @@ type treeHash struct {
 func createTreeHash(r io.Reader) (*treeHash, error) {
 	hasher := sha256.New()
 	hashes := make([]treeHash, 0)
-	i := 0
+	outIndex := 0
 
 	// generate hashes for 1 MiB chunks
 	n, err := io.CopyN(hasher, r, MiB)
 	for err == nil {
 		hashes = append(hashes, treeHash{})
-		hasher.Sum(hashes[i].Hash[:0])
+		hasher.Sum(hashes[outIndex].Hash[:0])
 		hasher.Reset()
-		i++
-		fmt.Printf("%x (%d)\n", hashes[i-1].Hash[:4], i-1)
+		outIndex++
+		fmt.Printf("%x (%d)\n", hashes[outIndex-1].Hash[:4], outIndex-1)
 		n, err = io.CopyN(hasher, r, MiB)
 	}
 	if err != nil && err != io.EOF {
@@ -37,31 +37,47 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 	}
 	if n > 0 {
 		hashes = append(hashes, treeHash{})
-		hasher.Sum(hashes[i].Hash[:0])
+		hasher.Sum(hashes[outIndex].Hash[:0])
 		hasher.Reset()
-		i++
-		fmt.Printf("%x (%d)\n", hashes[i-1].Hash[:4], i-1)
+		outIndex++
+		fmt.Printf("%x (%d)\n", hashes[outIndex-1].Hash[:4], outIndex-1)
 	}
 
 	// build tree
-	j := 0
-	added := 0
-	children := i
-	for children = i; children > 1; children -= 2 {
-		hashes = append(hashes, newTreeHash(&hashes[j], &hashes[j+1]))
-		j += 2
-		i++
-		added++
-		fmt.Printf("%x (%d -> %d %d)\n", hashes[i-1].Hash[:4], i-1, j-2, j-1)
+	childIndex := 0
+	added := outIndex
+	remainderIndex := -1
+	for added > 1 || remainderIndex != -1 {
+		children := added
+		fmt.Println("children", children)
+		added = 0
+		// pair up 
+		for children > 1 {
+			hashes = append(hashes, newTreeHash(&hashes[childIndex], &hashes[childIndex+1]))
+			childIndex += 2
+			children -= 2
+			outIndex++
+			added++
+			fmt.Printf("%x (%d -> %d %d)\n", hashes[outIndex-1].Hash[:4], outIndex-1, childIndex-2, childIndex-1)
+		}
+		if children == 1 {
+			if remainderIndex == -1 {
+				remainderIndex = childIndex
+				fmt.Println("added remainder", remainderIndex)
+				childIndex++
+			} else {
+				fmt.Println("1 child and remainder")
+				hashes = append(hashes, newTreeHash(&hashes[childIndex], &hashes[remainderIndex]))
+				outIndex++
+				fmt.Printf("%x (%d -> %d %d)\n", hashes[outIndex-1].Hash[:4], outIndex-1, childIndex, remainderIndex)
+				remainderIndex = -1
+				added++
+			}
+		}
 	}
-	if children > 0 {
-		remaining = 1
-		j++
-		fmt.Println("one left", i, j)
-	}
-	fmt.Println("i, j, added, remaining", i, j, added, remaining)
+	fmt.Println()
 
-	return &hashes[i-1], nil
+	return &hashes[outIndex-1], nil
 }
 
 func newTreeHash(left, right *treeHash) treeHash {

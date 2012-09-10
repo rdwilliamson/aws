@@ -70,4 +70,30 @@ func TestTreeHash(t *testing.T) {
 	if got := string(toHex(tree.Hash[:])); got != out5 {
 		t.Fatal("wanted:", out5, "got:", got)
 	}
+
+	in.Reset()
+	for i := 0; i < MiB*4; i++ {
+		in.WriteByte('a')
+	}
+	out6 := "ab7404d312438a79f8164a6714f2b7aa42b52fbfc8f3b2db62b372b182fc6619"
+	tree, err = createTreeHash(&in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(toHex(tree.Hash[:])); got != out6 {
+		t.Fatal("wanted:", out6, "got:", got)
+	}
+
+	in.Reset()
+	for i := 0; i < MiB*5; i++ {
+		in.WriteByte('a')
+	}
+	out7 := "ede4a38ec783a37bd243daa9693fbabaaf7ea2a370a511a72b02aaa8bfe0dda6"
+	tree, err = createTreeHash(&in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(toHex(tree.Hash[:])); got != out7 {
+		t.Fatal("wanted:", out7, "got:", got)
+	}
 }
