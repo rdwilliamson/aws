@@ -2,7 +2,6 @@ package glacier
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"io"
 )
 
@@ -29,7 +28,6 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 		hasher.Sum(hashes[outIndex].Hash[:0])
 		hasher.Reset()
 		outIndex++
-		fmt.Printf("%x (%d)\n", hashes[outIndex-1].Hash[:4], outIndex-1)
 		n, err = io.CopyN(hasher, r, MiB)
 	}
 	if err != nil && err != io.EOF {
@@ -40,52 +38,52 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 		hasher.Sum(hashes[outIndex].Hash[:0])
 		hasher.Reset()
 		outIndex++
-		fmt.Printf("%x (%d)\n", hashes[outIndex-1].Hash[:4], outIndex-1)
 	}
 
 	// build tree
+	// TODO calculate levels remaining and grow once
 	childIndex := 0
 	added := outIndex
 	remainderIndex := -1
 	for added > 1 || remainderIndex != -1 {
 		children := added
-		fmt.Println("children", children)
 		added = 0
 		// pair up 
 		for children > 1 {
-			hashes = append(hashes, newTreeHash(&hashes[childIndex], &hashes[childIndex+1]))
+			hashes = append(hashes, treeHash{})
+			hashes[outIndex].Left = &hashes[childIndex]
+			hashes[outIndex].Right = &hashes[childIndex+1]
+			hasher.Write(toHex(hashes[childIndex].Hash[:]))
+			hasher.Write(toHex(hashes[childIndex+1].Hash[:]))
+			hasher.Sum(hashes[outIndex].Hash[:0])
+			hasher.Reset()
 			childIndex += 2
 			children -= 2
 			outIndex++
 			added++
-			fmt.Printf("%x (%d -> %d %d)\n", hashes[outIndex-1].Hash[:4], outIndex-1, childIndex-2, childIndex-1)
 		}
 		if children == 1 {
+			// have a remainder that couldn't be paired up
 			if remainderIndex == -1 {
+				// hold on to remainder for later
 				remainderIndex = childIndex
-				fmt.Println("added remainder", remainderIndex)
 				childIndex++
 			} else {
-				fmt.Println("1 child and remainder")
-				hashes = append(hashes, newTreeHash(&hashes[childIndex], &hashes[remainderIndex]))
+				// join with remainder from a previous level
+				hashes = append(hashes, treeHash{})
+				hashes[outIndex].Left = &hashes[childIndex]
+				hashes[outIndex].Right = &hashes[remainderIndex]
+				hasher.Write(toHex(hashes[childIndex].Hash[:]))
+				hasher.Write(toHex(hashes[remainderIndex].Hash[:]))
+				hasher.Sum(hashes[outIndex].Hash[:0])
+				hasher.Reset()
 				outIndex++
-				fmt.Printf("%x (%d -> %d %d)\n", hashes[outIndex-1].Hash[:4], outIndex-1, childIndex, remainderIndex)
 				remainderIndex = -1
 				added++
 				childIndex++
 			}
 		}
 	}
-	fmt.Println()
 
 	return &hashes[outIndex-1], nil
-}
-
-func newTreeHash(left, right *treeHash) treeHash {
-	h := sha256.New()
-	h.Write(toHex(left.Hash[:]))
-	h.Write(toHex(right.Hash[:]))
-	var hash [sha256.Size]byte
-	h.Sum(hash[:0])
-	return treeHash{hash, left, right}
 }
