@@ -78,8 +78,8 @@ func KeysFromEnviroment() (string, string) {
 	return os.Getenv("AWS_SECRET_KEY"), os.Getenv("AWS_ACCESS_KEY")
 }
 
-// Signature contains the access ID key and the signing key derived from the
-// secret key.
+// Signature contains the access ID key, UTC date in YYYYMMDD format, region,
+// service name, and the signing key.
 type Signature struct {
 	AccessID   string
 	Date       string
@@ -88,8 +88,8 @@ type Signature struct {
 	SigningKey [sha256.Size]byte
 }
 
-// NewSignature creates a new signature from the passed keys, region, and
-// service.
+// NewSignature creates a new signature from the secret key, access key,
+// region, and service with the date set to UTC now.
 func NewSignature(secret, access string, r *Region, service string) *Signature {
 	var s Signature
 
@@ -116,7 +116,7 @@ func (s *Signature) generateSigningKey(secret string) {
 }
 
 // Sign uses signature s to sign the HTTP request. It sets the Authorization
-// header and sets/overwrites the Date header with now.
+// header and sets/overwrites the Date header for now.
 // If the signature was created on a different UTC day the signing will be
 // invalid.
 func (s *Signature) Sign(r *http.Request) error {
