@@ -57,9 +57,10 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 			hasher.Write(toHex(hashes[childIndex+1].Hash[:]))
 			hasher.Sum(hashes[outIndex].Hash[:0])
 			hasher.Reset()
-			childIndex += 2
-			children -= 2
 			outIndex++
+
+			children -= 2
+			childIndex += 2
 			added++
 		}
 		if children == 1 {
@@ -69,7 +70,7 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 				remainderIndex = childIndex
 				childIndex++
 			} else {
-				// join with remainder from a previous level
+				// join with existing remainder
 				hashes = append(hashes, treeHash{})
 				hashes[outIndex].Left = &hashes[childIndex]
 				hashes[outIndex].Right = &hashes[remainderIndex]
@@ -78,9 +79,10 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 				hasher.Sum(hashes[outIndex].Hash[:0])
 				hasher.Reset()
 				outIndex++
+
 				remainderIndex = -1
-				added++
 				childIndex++
+				added++
 			}
 		}
 	}
