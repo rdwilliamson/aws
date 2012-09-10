@@ -13,22 +13,21 @@ import (
 type Vault struct {
 	CreationDate      time.Time
 	LastInventoryDate time.Time
-	NumberOfArchives  int
-	SizeInBytes       int // int64?
+	NumberOfArchives  uint
+	SizeInBytes       uint64
 	VaultARN          string
 	VaultName         string
 }
 
-// used for unmarshaling json
+// TODO write unmarshaler instead of using these structs
 type vault struct {
 	CreationDate      string
 	LastInventoryDate *string
-	NumberOfArchives  int
-	SizeInBytes       int
+	NumberOfArchives  uint
+	SizeInBytes       uint64
 	VaultARN          string
 	VaultName         string
 }
-
 type vaultsList struct {
 	Marker    *string
 	VaultList []vault
