@@ -14,3 +14,5 @@ var (
 		"us-east-1",
 		"glacier.us-east-1.amazonaws.com"}
 )
+
+var Regions = []*Region{USEast}

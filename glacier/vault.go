@@ -33,7 +33,7 @@ type vaultsList struct {
 	VaultList []vault
 }
 
-func (gc *GlacierConnection) ListVaults(limit int, marker string) (string, []Vault, error) {
+func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, error) {
 	if limit < 0 || limit > 1000 {
 		return "", nil, errors.New("limit must be 1 through 1000")
 	}
@@ -52,12 +52,12 @@ func (gc *GlacierConnection) ListVaults(limit int, marker string) (string, []Vau
 		request.Header.Add("marker", "")
 	}
 
-	err = gc.Signature.Sign(request)
+	err = c.Signature.Sign(request)
 	if err != nil {
 		return "", nil, err
 	}
 
-	response, err := gc.Client.Do(request)
+	response, err := c.Client.Do(request)
 	if err != nil {
 		return "", nil, err
 	}
