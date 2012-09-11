@@ -2,6 +2,7 @@ package glacier
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"io"
 )
 
@@ -88,4 +89,59 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 	}
 
 	return &hashes[outIndex-1], nil
+}
+
+func (t *treeHash) node() string {
+	name := fmt.Sprintf("\"%p\"", t)
+	label := fmt.Sprintf("\tlabel = \"%s\"\n", string(toHex(t.Hash[:4])))
+
+	node := name + " [\n" + label + "];\n"
+
+	var edges string
+	if t.Left != nil {
+		left := fmt.Sprintf("\"%p\"", t.Left)
+		edges += name + " -> " + left + ";\n"
+	}
+	if t.Right != nil {
+		right := fmt.Sprintf("\"%p\"", t.Right)
+		edges += name + " -> " + right + ";\n"
+	}
+
+	return node + edges
+}
+
+func (t *treeHash) dot() string {
+	digraph := "digraph g {\n"
+	digraph += "node [\n\tshape = box\n];\n"
+
+	var recurse func(t *treeHash)
+	recurse = func(t *treeHash) {
+		if t.Left != nil {
+			recurse(t.Left)
+		}
+		if t.Right != nil {
+			recurse(t.Right)
+		}
+		digraph += t.node()
+	}
+	recurse(t)
+
+	digraph += "{\n\trank=same;\n"
+	recurse = func(t *treeHash) {
+		if t.Left == nil && t.Right == nil {
+			digraph += fmt.Sprintf("\t\"%p\"\n", t)
+		} else {
+			if t.Left != nil {
+				recurse(t.Left)
+			}
+			if t.Right != nil {
+				recurse(t.Right)
+			}
+		}
+	}
+	recurse(t)
+	digraph += "}\n"
+
+	digraph += "}\n"
+	return digraph
 }
