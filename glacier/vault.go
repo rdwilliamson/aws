@@ -71,6 +71,106 @@ func (c *Connection) CreateVault(name string) error {
 	return nil
 }
 
+func (c *Connection) DeleteVault(name string) error {
+	request, err := http.NewRequest("DELETE",
+		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	err = c.Signature.Sign(request)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != 204 {
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		err = response.Body.Close()
+		if err != nil {
+			return err
+		}
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return err
+		}
+		return e
+	}
+
+	return nil
+}
+
+func (c *Connection) DescribeVault(name string) (Vault, error) {
+	request, err := http.NewRequest("GET",
+		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
+	if err != nil {
+		return Vault{}, err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	err = c.Signature.Sign(request)
+	if err != nil {
+		return Vault{}, err
+	}
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return Vault{}, err
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return Vault{}, err
+	}
+	err = response.Body.Close()
+	if err != nil {
+		return Vault{}, err
+	}
+
+	if response.StatusCode != 200 {
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return Vault{}, err
+		}
+		return Vault{}, e
+	}
+
+	var v vault
+	err = json.Unmarshal(body, &v)
+	if err != nil {
+		return Vault{}, err
+	}
+
+	var result Vault
+	result.CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
+	if err != nil {
+		return Vault{}, err
+	}
+	if v.LastInventoryDate != nil {
+		result.LastInventoryDate, err =
+			time.Parse(time.RFC3339, *v.LastInventoryDate)
+		if err != nil {
+			return Vault{}, err
+		}
+	}
+	result.NumberOfArchives = v.NumberOfArchives
+	result.SizeInBytes = v.SizeInBytes
+	result.VaultARN = v.VaultARN
+	result.VaultName = v.VaultName
+
+	return result, nil
+}
+
 func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, error) {
 	if limit < 0 || limit > 1000 {
 		return "", nil, errors.New("limit must be 1 through 1000")
