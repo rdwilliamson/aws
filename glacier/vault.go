@@ -39,7 +39,7 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 	}
 
 	request, err := http.NewRequest("GET",
-		"https://"+aws.USEast.Glacier+"/-/vaults", nil)
+		"https://"+c.Signature.Region.Glacier+"/-/vaults", nil)
 	if err != nil {
 		return "", nil, err
 	}
