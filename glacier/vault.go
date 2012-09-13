@@ -33,6 +33,11 @@ type vaultsList struct {
 	VaultList []vault
 }
 
+type Notifications struct {
+	Events   []string
+	SNSTopic string
+}
+
 func (c *Connection) CreateVault(name string) error {
 	request, err := http.NewRequest("PUT",
 		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
@@ -221,7 +226,6 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 	}
 
 	var vaults vaultsList
-
 	err = json.Unmarshal(body, &vaults)
 	if err != nil {
 		return "", nil, err
@@ -253,4 +257,54 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 	}
 
 	return responseMarker, responseVaults, nil
+}
+
+func (c *Connection) GetVaultNotifications(name string) ([]string, error) {
+	request, err := http.NewRequest("GET", "https://"+
+		c.Signature.Region.Glacier+"/-/vaults/"+name+
+		"/notification-configuration", nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	err = c.Signature.Sign(request)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = response.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != 200 {
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return nil, err
+		}
+		return nil, e
+	}
+
+	var results Notifications
+	err = json.Unmarshal(body, &results)
+	if err != nil {
+		return nil, err
+	}
+
+	return results.Events, nil
+}
+
+func (c *Connection) DeleteVaultNotifications(name string) error {
+	return nil
 }
