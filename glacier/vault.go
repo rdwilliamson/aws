@@ -33,6 +33,44 @@ type vaultsList struct {
 	VaultList []vault
 }
 
+func (c *Connection) CreateVault(name string) error {
+	request, err := http.NewRequest("PUT",
+		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	err = c.Signature.Sign(request)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != 201 {
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		err = response.Body.Close()
+		if err != nil {
+			return err
+		}
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return err
+		}
+		return e
+	}
+
+	return nil
+}
+
 func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, error) {
 	if limit < 0 || limit > 1000 {
 		return "", nil, errors.New("limit must be 1 through 1000")
