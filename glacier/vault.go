@@ -306,5 +306,40 @@ func (c *Connection) GetVaultNotifications(name string) ([]string, error) {
 }
 
 func (c *Connection) DeleteVaultNotifications(name string) error {
+	request, err := http.NewRequest("DELETE", "https://"+
+		c.Signature.Region.Glacier+"/-/vaults/"+name+
+		"/notification-configuration", nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	err = c.Signature.Sign(request)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != 204 {
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		err = response.Body.Close()
+		if err != nil {
+			return err
+		}
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return err
+		}
+		return e
+	}
+
 	return nil
 }
