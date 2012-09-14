@@ -1,6 +1,7 @@
 package glacier
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"github.com/rdwilliamson/aws"
@@ -257,6 +258,52 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 	}
 
 	return responseMarker, responseVaults, nil
+}
+
+func (c *Connection) SetVaultNotifications(name string, n Notifications) error {
+	body, err := json.Marshal(n)
+	if err != nil {
+		return err
+	}
+	bodyReader := bytes.NewReader(body)
+
+	request, err := http.NewRequest("PUT", "https://"+
+		c.Signature.Region.Glacier+"/-/vaults/"+name+
+		"/notification-configuration", bodyReader)
+	if err != nil {
+		return err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	err = c.Signature.Sign(request)
+	if err != nil {
+		return err
+	}
+	bodyReader.Seek(0, 0)
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != 204 {
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		err = response.Body.Close()
+		if err != nil {
+			return err
+		}
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return err
+		}
+		return e
+	}
+
+	return nil
 }
 
 func (c *Connection) GetVaultNotifications(name string) ([]string, error) {
