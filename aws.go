@@ -119,6 +119,8 @@ func (s *Signature) generateSigningKey(secret string) {
 // header and sets/overwrites the Date header for now.
 // If the signature was created on a different UTC day the signing will be
 // invalid.
+// NOTE: Sign reads the request's body in order to hash it. Thus it must be
+// reset, it is the caller's responsibility to do this.
 func (s *Signature) Sign(r *http.Request) error {
 	// TODO check all error cases first
 	// TODO compare request date to signature date? or have signature update
