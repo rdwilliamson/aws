@@ -306,50 +306,51 @@ func (c *Connection) SetVaultNotifications(name string, n Notifications) error {
 	return nil
 }
 
-func (c *Connection) GetVaultNotifications(name string) ([]string, error) {
+func (c *Connection) GetVaultNotifications(name string) (Notifications, error) {
+	var results Notifications
+
 	request, err := http.NewRequest("GET", "https://"+
 		c.Signature.Region.Glacier+"/-/vaults/"+name+
 		"/notification-configuration", nil)
 	if err != nil {
-		return nil, err
+		return results, err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
 	err = c.Signature.Sign(request)
 	if err != nil {
-		return nil, err
+		return results, err
 	}
 
 	response, err := c.Client.Do(request)
 	if err != nil {
-		return nil, err
+		return results, err
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return nil, err
+		return results, err
 	}
 	err = response.Body.Close()
 	if err != nil {
-		return nil, err
+		return results, err
 	}
 
 	if response.StatusCode != 200 {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
-			return nil, err
+			return results, err
 		}
-		return nil, e
+		return results, e
 	}
 
-	var results Notifications
 	err = json.Unmarshal(body, &results)
 	if err != nil {
-		return nil, err
+		return results, err
 	}
 
-	return results.Events, nil
+	return results, nil
 }
 
 func (c *Connection) DeleteVaultNotifications(name string) error {
