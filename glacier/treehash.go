@@ -17,6 +17,7 @@ type treeHash struct {
 	Right *treeHash
 }
 
+// TODO hash entire file at the same time
 func createTreeHash(r io.Reader) (*treeHash, error) {
 	hasher := sha256.New()
 	hashes := make([]treeHash, 0)
