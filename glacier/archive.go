@@ -35,13 +35,14 @@ func (c *Connection) UploadArchive(description string, archive io.ReadSeeker,
 
 	h := sha256.New()
 	io.Copy(h, archive)
-	request.Header.Add("x-amz-content-sha256", string(toHex(h.Sum(nil))))
+	hash := h.Sum(nil)
+	request.Header.Add("x-amz-content-sha256", string(toHex(hash)))
 	_, err = archive.Seek(0, 0)
 	if err != nil {
 		return "", err
 	}
 
-	err = c.Signature.Sign(request)
+	err = c.Signature.Sign(request, nil, hash)
 	if err != nil {
 		return "", err
 	}
