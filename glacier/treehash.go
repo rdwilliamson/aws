@@ -55,8 +55,8 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 			hashes = append(hashes, treeHash{})
 			hashes[outIndex].Left = &hashes[childIndex]
 			hashes[outIndex].Right = &hashes[childIndex+1]
-			hasher.Write(toHex(hashes[childIndex].Hash[:]))
-			hasher.Write(toHex(hashes[childIndex+1].Hash[:]))
+			hasher.Write(hashes[childIndex].Hash[:])
+			hasher.Write(hashes[childIndex+1].Hash[:])
 			hasher.Sum(hashes[outIndex].Hash[:0])
 			hasher.Reset()
 			outIndex++
@@ -76,8 +76,8 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 				hashes = append(hashes, treeHash{})
 				hashes[outIndex].Left = &hashes[childIndex]
 				hashes[outIndex].Right = &hashes[remainderIndex]
-				hasher.Write(toHex(hashes[childIndex].Hash[:]))
-				hasher.Write(toHex(hashes[remainderIndex].Hash[:]))
+				hasher.Write(hashes[childIndex].Hash[:])
+				hasher.Write(hashes[remainderIndex].Hash[:])
 				hasher.Sum(hashes[outIndex].Hash[:0])
 				hasher.Reset()
 				outIndex++
