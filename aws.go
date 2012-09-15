@@ -119,9 +119,12 @@ func (s *Signature) generateSigningKey(secret string) {
 // header and sets/overwrites the Date header for now.
 // If the signature was created on a different UTC day the signing will be
 // invalid.
-// NOTE: Sign reads the request's body in order to hash it. Thus it must be
-// reset, it is the caller's responsibility to do this.
-func (s *Signature) Sign(r *http.Request) error {
+// If a hash of the body is provided it is used and the body of the request is
+// left alone. If no hash is provided one is created from the ReadSeeker, this
+// reads the entire body and then resets it to the beginning. If there is no
+// body then neither a ReadSeeker or hash is requied.
+func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker,
+	hash []byte) error {
 	// TODO check all error cases first
 	// TODO compare request date to signature date? or have signature update
 	// when it expires? or have whatever is using signature check it?
@@ -209,12 +212,18 @@ func (s *Signature) Sign(r *http.Request) error {
 	crb.WriteByte('\n')
 
 	// 6
-	hash := sha256.New()
-	if r.Body != nil {
-		io.Copy(hash, r.Body)
-	}
+	hasher := sha256.New()
 	var hashed [sha256.Size]byte
-	crb.Write(toHex(hash.Sum(hashed[:0])))
+	if hash == nil {
+		if rs != nil {
+			io.Copy(hasher, rs)
+			rs.Seek(0, 0)
+		}
+		crb.Write(toHex(hasher.Sum(hashed[:0])))
+		hasher.Reset()
+	} else {
+		crb.Write(toHex(hash))
+	}
 
 	// create string to sign
 	var sts bytes.Buffer
@@ -244,9 +253,8 @@ func (s *Signature) Sign(r *http.Request) error {
 	sts.WriteByte('\n')
 
 	// 4
-	hash.Reset()
-	hash.Write(crb.Bytes())
-	sts.Write(toHex(hash.Sum(hashed[:0])))
+	hasher.Write(crb.Bytes())
+	sts.Write(toHex(hasher.Sum(hashed[:0])))
 
 	// sign string and write to authorization header
 	var authz bytes.Buffer

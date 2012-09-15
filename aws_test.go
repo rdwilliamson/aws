@@ -100,7 +100,7 @@ func TestSignature(t *testing.T) {
 	}
 
 	for _, f := range tests {
-		err := signature.Sign(f.request)
+		err := signature.Sign(f.request, f.body, nil)
 		if err != nil {
 			t.Error(err)
 			continue
@@ -163,11 +163,12 @@ foo=bar`)
 			b.Fatal(err)
 		}
 		delete(request.Header, "User-Agent")
+		var body *bytes.Reader
 		if i := bytes.Index(rawRequest, []byte("\n\n")); i != -1 {
-			body := bytes.NewReader(rawRequest[i+2:])
+			body = bytes.NewReader(rawRequest[i+2:])
 			request.Body = ioutil.NopCloser(body)
 		}
 		b.StartTimer()
-		_ = signature.Sign(request)
+		_ = signature.Sign(request, body, nil)
 	}
 }
