@@ -25,7 +25,7 @@ func NewConnection(secret, access string, r *aws.Region) *Connection {
 }
 
 func CreateTreeHash(r io.Reader, w io.Writer) error {
-	th, err := createTreeHash(r)
+	th, _, err := createTreeHash(r)
 	if err != nil {
 		return err
 	}

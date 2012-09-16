@@ -18,27 +18,29 @@ type treeHash struct {
 }
 
 // TODO hash entire file at the same time
-func createTreeHash(r io.Reader) (*treeHash, error) {
-	hasher := sha256.New()
+func createTreeHash(r io.Reader) (*treeHash, []byte, error) {
+	wholeHash := sha256.New()
+	partHash := sha256.New()
+	hashers := io.MultiWriter(partHash, wholeHash)
 	hashes := make([]treeHash, 0)
 	outIndex := 0
 
 	// generate hashes for 1 MiB chunks
-	n, err := io.CopyN(hasher, r, MiB)
+	n, err := io.CopyN(hashers, r, MiB)
 	for err == nil {
 		hashes = append(hashes, treeHash{})
-		hasher.Sum(hashes[outIndex].Hash[:0])
-		hasher.Reset()
+		partHash.Sum(hashes[outIndex].Hash[:0])
+		partHash.Reset()
 		outIndex++
-		n, err = io.CopyN(hasher, r, MiB)
+		n, err = io.CopyN(hashers, r, MiB)
 	}
 	if err != nil && err != io.EOF {
-		return nil, err
+		return nil, nil, err
 	}
 	if n > 0 {
 		hashes = append(hashes, treeHash{})
-		hasher.Sum(hashes[outIndex].Hash[:0])
-		hasher.Reset()
+		partHash.Sum(hashes[outIndex].Hash[:0])
+		partHash.Reset()
 		outIndex++
 	}
 
@@ -55,10 +57,10 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 			hashes = append(hashes, treeHash{})
 			hashes[outIndex].Left = &hashes[childIndex]
 			hashes[outIndex].Right = &hashes[childIndex+1]
-			hasher.Write(hashes[childIndex].Hash[:])
-			hasher.Write(hashes[childIndex+1].Hash[:])
-			hasher.Sum(hashes[outIndex].Hash[:0])
-			hasher.Reset()
+			partHash.Write(hashes[childIndex].Hash[:])
+			partHash.Write(hashes[childIndex+1].Hash[:])
+			partHash.Sum(hashes[outIndex].Hash[:0])
+			partHash.Reset()
 			outIndex++
 
 			children -= 2
@@ -76,10 +78,10 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 				hashes = append(hashes, treeHash{})
 				hashes[outIndex].Left = &hashes[childIndex]
 				hashes[outIndex].Right = &hashes[remainderIndex]
-				hasher.Write(hashes[childIndex].Hash[:])
-				hasher.Write(hashes[remainderIndex].Hash[:])
-				hasher.Sum(hashes[outIndex].Hash[:0])
-				hasher.Reset()
+				partHash.Write(hashes[childIndex].Hash[:])
+				partHash.Write(hashes[remainderIndex].Hash[:])
+				partHash.Sum(hashes[outIndex].Hash[:0])
+				partHash.Reset()
 				outIndex++
 
 				remainderIndex = -1
@@ -89,7 +91,7 @@ func createTreeHash(r io.Reader) (*treeHash, error) {
 		}
 	}
 
-	return &hashes[outIndex-1], nil
+	return &hashes[outIndex-1], wholeHash.Sum(nil), nil
 }
 
 func (t *treeHash) node() string {

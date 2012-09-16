@@ -1,7 +1,6 @@
 package glacier
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"github.com/rdwilliamson/aws"
 	"io"
@@ -23,7 +22,7 @@ func (c *Connection) UploadArchive(description string, archive io.ReadSeeker,
 
 	request.Header.Add("x-amz-archive-description", description)
 
-	ht, err := createTreeHash(archive)
+	ht, hash, err := createTreeHash(archive)
 	if err != nil {
 		return "", err
 	}
@@ -33,9 +32,6 @@ func (c *Connection) UploadArchive(description string, archive io.ReadSeeker,
 	}
 	request.Header.Add("x-amz-sha256-tree-hash", string(toHex(ht.Hash[:])))
 
-	h := sha256.New()
-	io.Copy(h, archive)
-	hash := h.Sum(nil)
 	request.Header.Add("x-amz-content-sha256", string(toHex(hash)))
 	_, err = archive.Seek(0, 0)
 	if err != nil {
