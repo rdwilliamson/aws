@@ -10,8 +10,6 @@ import (
 
 func (c *Connection) UploadArchive(description string, archive io.ReadSeeker,
 	vault string) (string, error) {
-	// TODO good candidate for new signing methods, read/pass over the archive
-	// 3 times (4 actually, but 4th is sending it)
 	request, err := http.NewRequest("POST",
 		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives",
 		archive)
@@ -39,10 +37,6 @@ func (c *Connection) UploadArchive(description string, archive io.ReadSeeker,
 	}
 
 	err = c.Signature.Sign(request, nil, hash)
-	if err != nil {
-		return "", err
-	}
-	_, err = archive.Seek(0, 0)
 	if err != nil {
 		return "", err
 	}

@@ -24,6 +24,14 @@ func NewConnection(secret, access string, r *aws.Region) *Connection {
 		r, "glacier")}
 }
 
+func GetTreeHash(r io.Reader) (string, string, error) {
+	treeHash, hash, err := createTreeHash(r)
+	if err != nil {
+		return "", "", err
+	}
+	return string(toHex(treeHash.Hash[:])), string(toHex(hash)), nil
+}
+
 func CreateTreeHash(r io.Reader, w io.Writer) error {
 	th, _, err := createTreeHash(r)
 	if err != nil {
