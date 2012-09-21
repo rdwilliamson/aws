@@ -1,10 +1,29 @@
 package glacier
 
+import (
+	"encoding/json"
+)
+
+type job struct {
+	Type        string
+	ArchiveId   string "json:,omitempty" // archive retrieval only
+	Description string
+	Format      string "json:,omitempty" // inventory retrieval only
+	SNSTopic    string
+}
+
 func (c *Connection) InitiateRetrievalJob(vault, archive, topic string) error {
 	return nil
 }
 
-func (c *Connection) InitiateInventoryJob(vault string) error {
+func (c *Connection) InitiateInventoryJob(vault, description,
+	topic string) error {
+	j := job{Type: "inventory-retrieval", Description: description,
+		SNSTopic: topic}
+	_, err := json.Marshal(j)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
