@@ -21,50 +21,50 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic string) error {
 }
 
 func (c *Connection) InitiateInventoryJob(vault, description,
-	topic string) error {
+	topic string) (string, error) {
 	j := job{Type: "inventory-retrieval", Description: description,
 		SNSTopic: topic}
 	rawBody, err := json.Marshal(j)
 	if err != nil {
-		return err
+		return "", err
 	}
 	body := bytes.NewReader(rawBody)
 
 	request, err := http.NewRequest("POST",
 		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs", body)
 	if err != nil {
-		return err
+		return "", err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
 	err = c.Signature.Sign(request, body, nil)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	response, err := c.Client.Do(request)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if response.StatusCode != 202 {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
-			return err
+			return "", err
 		}
 		err = response.Body.Close()
 		if err != nil {
-			return err
+			return "", err
 		}
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
-			return err
+			return "", err
 		}
-		return e
+		return "", e
 	}
 
-	return nil
+	return response.Header.Get("x-amz-job-id"), nil
 }
 
 func (c *Connection) DescribeJob() error {
