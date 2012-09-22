@@ -10,9 +10,9 @@ import (
 
 type job struct {
 	Type        string
-	ArchiveId   string "json:,omitempty" // archive retrieval only
+	ArchiveId   string `json:",omitempty"` // archive retrieval only
 	Description string
-	Format      string "json:,omitempty" // inventory retrieval only
+	Format      string `json:",omitempty"` // inventory retrieval only
 	SNSTopic    string
 }
 
