@@ -74,3 +74,41 @@ func (c *Connection) UploadArchive(description string, archive io.ReadSeeker,
 
 	return response.Header.Get("Location"), nil
 }
+
+func (c *Connection) DeleteArchive(vault, archive string) error {
+	request, err := http.NewRequest("DELETE", "https://"+
+		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives/"+archive, nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	err = c.Signature.Sign(request, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != 204 {
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		err = response.Body.Close()
+		if err != nil {
+			return err
+		}
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return err
+		}
+		return e
+	}
+
+	return nil
+}
