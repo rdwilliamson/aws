@@ -3,7 +3,9 @@ package glacier
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/rdwilliamson/aws"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -180,8 +182,44 @@ func (c *Connection) DescribeJob() error {
 	return nil
 }
 
-func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) error {
-	return nil
+func (c *Connection) GetRetrievalJob(vault, job string, start,
+	end uint) (io.ReadCloser, error) {
+	request, err := http.NewRequest("GET", "https://"+
+		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+"/output",
+		nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	if end > 0 {
+		request.Header.Add("Range", fmt.Sprintf("bytes %d-%d/*", start, end))
+	}
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != 200 {
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return nil, err
+		}
+		err = response.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return nil, err
+		}
+		return nil, e
+	}
+
+	// TODO return content range and x-amz-sha256-tree-hash
+	return nil, err
 }
 
 func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
