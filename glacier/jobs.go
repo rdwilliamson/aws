@@ -85,8 +85,48 @@ type jobList struct {
 	JobList []job
 }
 
-func (c *Connection) InitiateRetrievalJob(vault, archive, topic string) error {
-	return nil
+func (c *Connection) InitiateRetrievalJob(vault, archive, topic,
+	description string) (string, error) {
+	j := jobRequest{Type: "archive-retrieval", ArchiveId: archive,
+		Description: description, SNSTopic: topic}
+	rawBody, _ := json.Marshal(j)
+	body := bytes.NewReader(rawBody)
+
+	request, err := http.NewRequest("POST",
+		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs", body)
+	if err != nil {
+		return "", err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	err = c.Signature.Sign(request, body, nil)
+	if err != nil {
+		return "", err
+	}
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return "", err
+	}
+
+	if response.StatusCode != 202 {
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return "", err
+		}
+		err = response.Body.Close()
+		if err != nil {
+			return "", err
+		}
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return "", err
+		}
+		return "", e
+	}
+
+	return response.Header.Get("x-amz-job-id"), nil
 }
 
 func (c *Connection) InitiateInventoryJob(vault, description,
