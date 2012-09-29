@@ -192,7 +192,7 @@ foo=bar`)
 
 	err = signature.Sign(request, nil, nil)
 	if err == nil {
-		t.Error("expected url error but got nil")
+		t.Error("expected error but got nil")
 	} else {
 		if _, ok := err.(*time.ParseError); !ok {
 			t.Error("url not *time.ParseError")
@@ -202,7 +202,7 @@ foo=bar`)
 	request.URL.RawQuery += "%jk"
 	err = signature.Sign(request, nil, nil)
 	if err == nil {
-		t.Error("expected url error but got nil")
+		t.Error("expected error but got nil")
 	} else {
 		if _, ok := err.(url.EscapeError); !ok {
 			t.Error("url not url.EscapeError")
