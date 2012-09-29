@@ -14,10 +14,10 @@ import (
 
 type jobRequest struct {
 	Type        string
-	ArchiveId   string `json:",omitempty"` // archive retrieval only
-	Description string
-	Format      string `json:",omitempty"` // inventory retrieval only
-	SNSTopic    string
+	ArchiveId   string `json:",omitempty"` // required for archive retrieval
+	Description string `json:",omitempty"`
+	Format      string `json:",omitempty"`
+	SNSTopic    string `json:",omitempty"`
 }
 
 type Archive struct {
