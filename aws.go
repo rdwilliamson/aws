@@ -116,13 +116,16 @@ func (s *Signature) generateSigningKey(secret string) {
 }
 
 // Sign uses signature s to sign the HTTP request. It sets the Authorization
-// header and sets/overwrites the Date header for now.
+// header and sets / overwrites the Date header for now.
 // If the signature was created on a different UTC day the signing will be
 // invalid.
 // If a hash of the body is provided it is used and the body of the request is
 // left alone. If no hash is provided one is created from the ReadSeeker, this
 // reads the entire body and then resets it to the beginning. If there is no
-// body then neither a ReadSeeker or hash is requied.
+// body then neither a ReadSeeker or hash is required.
+//
+// Possible errors are an invalid URL (url.Error) or if the date header isn't
+// in time.RFC1123 format (time.ParseError). I haven't actually verified errors.
 func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker,
 	hash []byte) error {
 	// TODO check all error cases first
@@ -237,7 +240,7 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker,
 	var dateTime time.Time
 	dates, ok := r.Header["Date"]
 	if !ok || len(dates) < 1 {
-		dateTime = time.Now().UTC() // TODO could be differnt day than signature
+		dateTime = time.Now().UTC() // TODO could be different day than signature
 		r.Header.Set("Date", dateTime.Format(time.RFC3339))
 	} else {
 		dateTime, err = time.Parse(time.RFC1123, dates[0])
