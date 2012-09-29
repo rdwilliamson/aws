@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -170,5 +171,41 @@ foo=bar`)
 		}
 		b.StartTimer()
 		_ = signature.Sign(request, body, nil)
+	}
+}
+
+func TestSignErrors(t *testing.T) {
+	secret := "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+	access := "AKIDEXAMPLE"
+	signature := NewSignature(secret, access, USEast, "service")
+	rawRequest := []byte(`POST / HTTP/1.1
+Content-Type:application/x-www-form-urlencoded
+Date:a
+Host:host.foo.com
+
+foo=bar`)
+	reader := bufio.NewReader(bytes.NewBuffer(rawRequest))
+	request, err := http.ReadRequest(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = signature.Sign(request, nil, nil)
+	if err == nil {
+		t.Error("expected url error but got nil")
+	} else {
+		if _, ok := err.(*time.ParseError); !ok {
+			t.Error("url not *time.ParseError")
+		}
+	}
+
+	request.URL.RawQuery += "%jk"
+	err = signature.Sign(request, nil, nil)
+	if err == nil {
+		t.Error("expected url error but got nil")
+	} else {
+		if _, ok := err.(url.EscapeError); !ok {
+			t.Error("url not url.EscapeError")
+		}
 	}
 }

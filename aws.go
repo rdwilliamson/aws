@@ -124,8 +124,8 @@ func (s *Signature) generateSigningKey(secret string) {
 // reads the entire body and then resets it to the beginning. If there is no
 // body then neither a ReadSeeker or hash is required.
 //
-// Possible errors are an invalid URL (url.Error) or if the date header isn't
-// in time.RFC1123 format (time.ParseError). I haven't actually verified errors.
+// Possible errors are an invalid URL query parameters (url.EscapeError) or if
+// the date header isn't in time.RFC1123 format (*time.ParseError).
 func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker,
 	hash []byte) error {
 	// TODO check all error cases first
