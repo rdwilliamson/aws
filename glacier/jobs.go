@@ -71,15 +71,15 @@ type job struct {
 	ArchiveId            *string
 	ArchiveSizeInBytes   *uint64
 	Completed            bool
-	CompletionDate       string
+	CompletionDate       *string
 	CreationDate         string
 	InventorySizeInBytes *uint
-	JobDescription       string
+	JobDescription       *string
 	JobId                string
 	SHA256TreeHash       *string
-	SNSTopic             string
+	SNSTopic             *string
 	StatusCode           string
-	StatusMessage        string
+	StatusMessage        *string
 	VaultARN             string
 }
 type jobList struct {
@@ -364,7 +364,9 @@ func (c *Connection) ListJobs(vault, completed, limit, marker,
 			jobs[i].ArchiveSizeInBytes = *v.ArchiveSizeInBytes
 		}
 		jobs[i].Completed = v.Completed
-		jobs[i].CompletionDate, err = time.Parse(time.RFC3339, v.CompletionDate)
+		if v.CompletionDate != nil {
+			jobs[i].CompletionDate, err = time.Parse(time.RFC3339, *v.CompletionDate)
+		}
 		if err != nil {
 			return nil, "", err
 		}
@@ -375,14 +377,20 @@ func (c *Connection) ListJobs(vault, completed, limit, marker,
 		if v.InventorySizeInBytes != nil {
 			jobs[i].InventorySizeInBytes = *v.InventorySizeInBytes
 		}
-		jobs[i].JobDescription = v.JobDescription
+		if v.JobDescription != nil {
+			jobs[i].JobDescription = *v.JobDescription
+		}
 		jobs[i].JobId = v.JobId
 		if v.SHA256TreeHash != nil {
 			jobs[i].SHA256TreeHash = *v.SHA256TreeHash
 		}
-		jobs[i].SNSTopic = v.SNSTopic
+		if v.SNSTopic != nil {
+			jobs[i].SNSTopic = *v.SNSTopic
+		}
 		jobs[i].StatusCode = v.StatusCode
-		jobs[i].StatusMessage = v.StatusMessage
+		if v.StatusMessage != nil {
+			jobs[i].StatusMessage = *v.StatusMessage
+		}
 		jobs[i].VaultARN = v.VaultARN
 	}
 
