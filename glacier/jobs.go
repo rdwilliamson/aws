@@ -180,7 +180,7 @@ func (c *Connection) InitiateInventoryJob(vault, description,
 
 func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	request, err := http.NewRequest("GET", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+jobId+"/output",
+		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+jobId,
 		nil)
 	if err != nil {
 		return nil, err
@@ -246,7 +246,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	}
 	result.VaultARN = j.VaultARN
 
-	return nil, nil
+	return &result, nil
 }
 
 func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.ReadCloser, error) {
