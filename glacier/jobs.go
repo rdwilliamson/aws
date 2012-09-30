@@ -320,10 +320,7 @@ func (c *Connection) ListJobs(vault, completed, limit, marker,
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return nil, "", err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -354,6 +351,7 @@ func (c *Connection) ListJobs(vault, completed, limit, marker,
 		return nil, "", err
 	}
 
+	var err1 error
 	jobs := make([]Job, len(jl.JobList))
 	for i, v := range jl.JobList {
 		jobs[i].Action = v.Action
@@ -368,11 +366,11 @@ func (c *Connection) ListJobs(vault, completed, limit, marker,
 			jobs[i].CompletionDate, err = time.Parse(time.RFC3339, *v.CompletionDate)
 		}
 		if err != nil {
-			return nil, "", err
+			err1 = err
 		}
 		jobs[i].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
 		if err != nil {
-			return nil, "", err
+			err1 = err
 		}
 		if v.InventorySizeInBytes != nil {
 			jobs[i].InventorySizeInBytes = *v.InventorySizeInBytes
@@ -399,5 +397,5 @@ func (c *Connection) ListJobs(vault, completed, limit, marker,
 		m = *jl.Marker
 	}
 
-	return jobs, m, nil
+	return jobs, m, err1
 }
