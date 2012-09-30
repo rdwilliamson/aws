@@ -178,8 +178,75 @@ func (c *Connection) InitiateInventoryJob(vault, description,
 	return response.Header.Get("x-amz-job-id"), nil
 }
 
-func (c *Connection) DescribeJob() error {
-	return nil
+func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
+	request, err := http.NewRequest("GET", "https://"+
+		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+jobId+"/output",
+		nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	c.Signature.Sign(request, nil, nil)
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	response.Body.Close()
+
+	if response.StatusCode != 200 {
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return nil, err
+		}
+		return nil, &e
+	}
+
+	var j job
+	err = json.Unmarshal(body, &j)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Job
+	if j.ArchiveId != nil {
+		result.ArchiveId = *j.ArchiveId
+	}
+	if j.ArchiveSizeInBytes != nil {
+		result.ArchiveSizeInBytes = *j.ArchiveSizeInBytes
+	}
+	result.Completed = j.Completed
+	if j.CompletionDate != nil {
+		result.CompletionDate, err = time.Parse(time.RFC3339, *j.CompletionDate)
+	}
+	result.CreationDate, err = time.Parse(time.RFC3339, j.CreationDate)
+	if j.InventorySizeInBytes != nil {
+		result.InventorySizeInBytes = *j.InventorySizeInBytes
+	}
+	if j.JobDescription != nil {
+		result.JobDescription = *j.JobDescription
+	}
+	result.JobId = j.JobId
+	if j.SHA256TreeHash != nil {
+		result.SHA256TreeHash = *j.SHA256TreeHash
+	}
+	if j.SNSTopic != nil {
+		result.SNSTopic = *j.SNSTopic
+	}
+	result.StatusCode = j.StatusCode
+	if j.StatusMessage != nil {
+		result.StatusMessage = *j.StatusMessage
+	}
+	result.VaultARN = j.VaultARN
+
+	return nil, nil
 }
 
 func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.ReadCloser, error) {
