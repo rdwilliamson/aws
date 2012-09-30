@@ -182,8 +182,7 @@ func (c *Connection) DescribeJob() error {
 	return nil
 }
 
-func (c *Connection) GetRetrievalJob(vault, job string, start,
-	end uint) (io.ReadCloser, error) {
+func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.ReadCloser, error) {
 	request, err := http.NewRequest("GET", "https://"+
 		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+"/output",
 		nil)
@@ -191,10 +190,11 @@ func (c *Connection) GetRetrievalJob(vault, job string, start,
 		return nil, err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
-
 	if end > 0 {
 		request.Header.Add("Range", fmt.Sprintf("bytes %d-%d/*", start, end))
 	}
+
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -206,10 +206,8 @@ func (c *Connection) GetRetrievalJob(vault, job string, start,
 		if err != nil {
 			return nil, err
 		}
-		err = response.Body.Close()
-		if err != nil {
-			return nil, err
-		}
+		response.Body.Close()
+
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -219,7 +217,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start,
 	}
 
 	// TODO return content range and x-amz-sha256-tree-hash
-	return nil, err
+	return response.Body, nil
 }
 
 func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
