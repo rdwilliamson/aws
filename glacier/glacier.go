@@ -1,8 +1,6 @@
 package glacier
 
 import (
-	"encoding/gob"
-	"fmt"
 	"github.com/rdwilliamson/aws"
 	"io"
 	"net/http"
@@ -30,44 +28,6 @@ func GetTreeHash(r io.Reader) (string, string, error) {
 		return "", "", err
 	}
 	return string(toHex(treeHash.Hash[:])), string(toHex(hash)), nil
-}
-
-func CreateTreeHash(r io.Reader, w io.Writer) error {
-	th, _, err := createTreeHash(r)
-	if err != nil {
-		return err
-	}
-	printTreeHash(th, 0)
-
-	enc := gob.NewEncoder(w)
-	err = enc.Encode(th)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func ReadTreeHash(r io.Reader) error {
-	dec := gob.NewDecoder(r)
-	var th treeHash
-	err := dec.Decode(&th)
-	if err != nil {
-		return err
-	}
-	printTreeHash(&th, 0)
-	return nil
-}
-
-func printTreeHash(th *treeHash, level int) {
-	if th.Left == nil && th.Right == nil {
-		fmt.Println("leaf", string(toHex(th.Hash[:])))
-	} else {
-		fmt.Println(level, string(toHex(th.Hash[:])))
-		level++
-		printTreeHash(th.Left, level)
-		printTreeHash(th.Right, level)
-	}
 }
 
 // TODO method to log things such as x-amzn-RequestId

@@ -3,6 +3,7 @@ package glacier
 import (
 	"crypto/sha256"
 	"fmt"
+	"hash"
 	"io"
 )
 
@@ -11,24 +12,81 @@ const (
 	MiB = 1024 * KiB
 )
 
-type treeHash struct {
+type treeHashNode struct {
 	Hash  [sha256.Size]byte
-	Left  *treeHash
-	Right *treeHash
+	Left  *treeHashNode
+	Right *treeHashNode
+}
+
+type TreeHash struct {
+	whole   hash.Hash
+	part    hash.Hash
+	hashers io.Writer
+	hashes  []treeHashNode
+	written int
+}
+
+func NewTreeHash() *TreeHash {
+	var result TreeHash
+	result.whole = sha256.New()
+	result.part = sha256.New()
+	result.hashers = io.MultiWriter(result.whole, result.part)
+	result.hashes = make([]treeHashNode, 0)
+	return &result
+}
+
+func (th *TreeHash) Write(p []byte) (n int, err error) {
+	if len(p) > 1024*1024 {
+		th.written = 0
+	}
+	var nn int
+	for len(p) > 1024*1024 {
+		nn, _ = th.hashers.Write(p[:1024*1024-th.written])
+		n += nn
+		// hash part and add to tree
+		p = p[nn:]
+	}
+
+	// complete chunk and write part of next one
+	if th.written+len(p) > 1024*1024 {
+
+	}
+
+	// not enough to complete a 1 MiB chunk
+	if len(p) < 1024*1024-th.written {
+		nn, _ = th.hashers.Write(p)
+		n += nn
+		th.written += nn
+	}
+
+	return
+}
+
+func (th *TreeHash) Close() error {
+	// complete last chunk
+	return nil
+}
+
+func (th *TreeHash) TreeHash() string {
+	return ""
+}
+
+func (th *TreeHash) Hash() string {
+	return ""
 }
 
 // TODO hash entire file at the same time
-func createTreeHash(r io.Reader) (*treeHash, []byte, error) {
+func createTreeHash(r io.Reader) (*treeHashNode, []byte, error) {
 	wholeHash := sha256.New()
 	partHash := sha256.New()
 	hashers := io.MultiWriter(partHash, wholeHash)
-	hashes := make([]treeHash, 0)
+	hashes := make([]treeHashNode, 0)
 	outIndex := 0
 
 	// generate hashes for 1 MiB chunks
 	n, err := io.CopyN(hashers, r, MiB)
 	for err == nil {
-		hashes = append(hashes, treeHash{})
+		hashes = append(hashes, treeHashNode{})
 		partHash.Sum(hashes[outIndex].Hash[:0])
 		partHash.Reset()
 		outIndex++
@@ -38,7 +96,7 @@ func createTreeHash(r io.Reader) (*treeHash, []byte, error) {
 		return nil, nil, err
 	}
 	if n > 0 {
-		hashes = append(hashes, treeHash{})
+		hashes = append(hashes, treeHashNode{})
 		partHash.Sum(hashes[outIndex].Hash[:0])
 		partHash.Reset()
 		outIndex++
@@ -54,7 +112,7 @@ func createTreeHash(r io.Reader) (*treeHash, []byte, error) {
 		added = 0
 		// pair up 
 		for children > 1 {
-			hashes = append(hashes, treeHash{})
+			hashes = append(hashes, treeHashNode{})
 			hashes[outIndex].Left = &hashes[childIndex]
 			hashes[outIndex].Right = &hashes[childIndex+1]
 			partHash.Write(hashes[childIndex].Hash[:])
@@ -75,7 +133,7 @@ func createTreeHash(r io.Reader) (*treeHash, []byte, error) {
 				childIndex++
 			} else {
 				// join with existing remainder
-				hashes = append(hashes, treeHash{})
+				hashes = append(hashes, treeHashNode{})
 				hashes[outIndex].Left = &hashes[childIndex]
 				hashes[outIndex].Right = &hashes[remainderIndex]
 				partHash.Write(hashes[childIndex].Hash[:])
@@ -94,7 +152,7 @@ func createTreeHash(r io.Reader) (*treeHash, []byte, error) {
 	return &hashes[outIndex-1], wholeHash.Sum(nil), nil
 }
 
-func (t *treeHash) node() string {
+func (t *treeHashNode) node() string {
 	name := fmt.Sprintf("\"%p\"", t)
 	label := fmt.Sprintf("\tlabel = \"%s\"\n", string(toHex(t.Hash[:4])))
 
@@ -113,12 +171,12 @@ func (t *treeHash) node() string {
 	return node + edges
 }
 
-func (t *treeHash) dot() string {
+func (t *treeHashNode) dot() string {
 	digraph := "digraph g {\n"
 	digraph += "node [\n\tshape = box\n];\n"
 
-	var recurse func(t *treeHash)
-	recurse = func(t *treeHash) {
+	var recurse func(t *treeHashNode)
+	recurse = func(t *treeHashNode) {
 		if t.Left != nil {
 			recurse(t.Left)
 		}
@@ -130,7 +188,7 @@ func (t *treeHash) dot() string {
 	recurse(t)
 
 	digraph += "{\n\trank=same;\n"
-	recurse = func(t *treeHash) {
+	recurse = func(t *treeHashNode) {
 		if t.Left == nil && t.Right == nil {
 			digraph += fmt.Sprintf("\t\"%p\"\n", t)
 		} else {
