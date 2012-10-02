@@ -126,8 +126,8 @@ func (s *Signature) generateSigningKey(secret string) {
 //
 // Possible errors are an invalid URL query parameters (url.EscapeError) or if
 // the date header isn't in time.RFC1123 format (*time.ParseError).
-func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker,
-	hash []byte) error {
+func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
+	// TODO check if header already has hash instead of parameter
 	// TODO check all error cases first
 	// TODO compare request date to signature date? or have signature update
 	// when it expires? or have whatever is using signature check it?
