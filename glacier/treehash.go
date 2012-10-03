@@ -22,8 +22,8 @@ type TreeHash struct {
 	whole   hash.Hash
 	part    hash.Hash
 	hashers io.Writer
-	written int
 	nodes   []treeHashNode
+	written int
 }
 
 func NewTreeHash() *TreeHash {
@@ -38,30 +38,31 @@ func NewTreeHash() *TreeHash {
 func (th *TreeHash) Write(p []byte) (n int, err error) {
 	// check if we can't fill up remaining chunk
 	if len(p) < 1024*1024-th.written {
-		n, err = th.hashers.Write(p)
+		th.written, _ = th.hashers.Write(p)
 		th.written += n
 		return
 	}
 
 	// fill remaining chunk
-	nn, _ := th.hashers.Write(p[:1024*1024-th.written])
-	n += nn
-	p = p[nn:]
+	th.written, _ = th.hashers.Write(p[:1024*1024-th.written])
+	n += th.written
+	p = p[th.written:]
 	th.nodes = append(th.nodes, treeHashNode{})
 	th.part.Sum(th.nodes[len(th.nodes)-1].Hash[:0])
 	th.part.Reset()
+	th.written = 0
 
 	// write all full chunks
-	th.written = 0
 	for len(p) > 1024*1024 {
-		nn, _ = th.hashers.Write(p[:1024*1024-th.written])
-		n += nn
-		p = p[nn:]
+		th.written, _ = th.hashers.Write(p[:1024*1024-th.written])
+		n += th.written
+		p = p[th.written:]
 		th.nodes = append(th.nodes, treeHashNode{})
 		th.part.Sum(th.nodes[len(th.nodes)-1].Hash[:0])
 		th.part.Reset()
 	}
 
+	// write remaining
 	th.written, _ = th.hashers.Write(p)
 	n += th.written
 
@@ -70,9 +71,11 @@ func (th *TreeHash) Write(p []byte) (n int, err error) {
 
 func (th *TreeHash) Close() error {
 	// create last node
-	th.nodes = append(th.nodes, treeHashNode{})
-	th.part.Sum(th.nodes[len(th.nodes)-1].Hash[:0])
-	th.part.Reset()
+	if th.written > 0 {
+		th.nodes = append(th.nodes, treeHashNode{})
+		th.part.Sum(th.nodes[len(th.nodes)-1].Hash[:0])
+		th.part.Reset()
+	}
 
 	// create tree
 	outIndex := len(th.nodes)
@@ -91,8 +94,8 @@ func (th *TreeHash) Close() error {
 			th.part.Write(th.nodes[childIndex+1].Hash[:])
 			th.part.Sum(th.nodes[outIndex].Hash[:0])
 			th.part.Reset()
-			outIndex++
 
+			outIndex++
 			children -= 2
 			childIndex += 2
 			added++
@@ -112,14 +115,16 @@ func (th *TreeHash) Close() error {
 				th.part.Write(remainder.Hash[:])
 				th.part.Sum(th.nodes[outIndex].Hash[:0])
 				th.part.Reset()
-				outIndex++
 
+				outIndex++
 				remainder = nil
 				childIndex++
 				added++
 			}
 		}
 	}
+
+	fmt.Println(outIndex)
 	return nil
 }
 

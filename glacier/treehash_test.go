@@ -23,6 +23,16 @@ func TestTreeHash(t *testing.T) {
 		t.Fatal("hash of entire file, wanted:", out2, "got:", fileString)
 	}
 
+	th := NewTreeHash()
+	th.Write([]byte("Hello World"))
+	th.Close()
+	if out1 != th.TreeHash() {
+		t.Fatal("tree hash, wanted:", out1, "got:", th.TreeHash())
+	}
+	if out2 != th.Hash() {
+		t.Fatal("hash of entire file, wanted:", out2, "got:", th.Hash())
+	}
+
 	in.Reset()
 	for i := 0; i < MiB; i++ {
 		in.WriteByte('a')
@@ -39,6 +49,18 @@ func TestTreeHash(t *testing.T) {
 		t.Fatal("hash of entire file, wanted:", out4, "got:", fileString)
 	}
 
+	th.Reset()
+	for i := 0; i < MiB; i++ {
+		th.Write([]byte{'a'})
+	}
+	th.Close()
+	if out3 != th.TreeHash() {
+		t.Fatal("tree hash, wanted:", out3, "got:", th.TreeHash())
+	}
+	if out4 != th.Hash() {
+		t.Fatal("hash of entire file, wanted:", out4, "got:", th.Hash())
+	}
+
 	in.Reset()
 	for i := 0; i < MiB*2; i++ {
 		in.WriteByte('a')
@@ -53,5 +75,22 @@ func TestTreeHash(t *testing.T) {
 	}
 	if out6 != fileString {
 		t.Fatal("hash of entire file, wanted:", out6, "got:", fileString)
+	}
+
+	th.Reset()
+	data := make([]byte, 2*MiB)
+	for i := range data {
+		data[i] = 'a'
+	}
+	n, _ := th.Write(data)
+	if n != len(data) {
+		t.Fatal("didn't write", 2*MiB, "wrote", n)
+	}
+	th.Close()
+	if out5 != th.TreeHash() {
+		t.Fatal("tree hash, wanted:", out5, "got:", th.TreeHash())
+	}
+	if out6 != th.Hash() {
+		t.Fatal("hash of entire file, wanted:", out6, "got:", th.Hash())
 	}
 }
