@@ -78,8 +78,8 @@ func (th *TreeHash) Close() error {
 	outIndex := len(th.nodes)
 	childIndex := 0
 	added := outIndex
-	remainderIndex := -1
-	for added > 1 || remainderIndex != -1 {
+	var remainder *treeHashNode
+	for added > 1 || remainder != nil {
 		children := added
 		added = 0
 		// pair up 
@@ -98,23 +98,23 @@ func (th *TreeHash) Close() error {
 			added++
 		}
 		if children == 1 {
-			// have a remainder that couldn't be paired up
-			if remainderIndex == -1 {
-				// hold on to remainder for later
-				remainderIndex = childIndex
+			// have a child that couldn't be paired up
+			if remainder == nil {
+				// hold on to child as remainder for later
+				remainder = &th.nodes[childIndex]
 				childIndex++
 			} else {
 				// join with existing remainder
 				th.nodes = append(th.nodes, treeHashNode{})
 				th.nodes[outIndex].Left = &th.nodes[childIndex]
-				th.nodes[outIndex].Right = &th.nodes[remainderIndex]
+				th.nodes[outIndex].Right = remainder
 				th.part.Write(th.nodes[childIndex].Hash[:])
-				th.part.Write(th.nodes[remainderIndex].Hash[:])
+				th.part.Write(remainder.Hash[:])
 				th.part.Sum(th.nodes[outIndex].Hash[:0])
 				th.part.Reset()
 				outIndex++
 
-				remainderIndex = -1
+				remainder = nil
 				childIndex++
 				added++
 			}
@@ -169,8 +169,8 @@ func createTreeHash(r io.Reader) (*treeHashNode, []byte, error) {
 	// TODO calculate levels remaining and grow once
 	childIndex := 0
 	added := outIndex
-	remainderIndex := -1
-	for added > 1 || remainderIndex != -1 {
+	var remainder *treeHashNode
+	for added > 1 || remainder != nil {
 		children := added
 		added = 0
 		// pair up 
@@ -183,29 +183,27 @@ func createTreeHash(r io.Reader) (*treeHashNode, []byte, error) {
 			partHash.Sum(hashes[outIndex].Hash[:0])
 			partHash.Reset()
 			outIndex++
-
 			children -= 2
 			childIndex += 2
 			added++
 		}
 		if children == 1 {
 			// have a remainder that couldn't be paired up
-			if remainderIndex == -1 {
+			if remainder == nil {
 				// hold on to remainder for later
-				remainderIndex = childIndex
+				remainder = &hashes[childIndex]
 				childIndex++
 			} else {
 				// join with existing remainder
 				hashes = append(hashes, treeHashNode{})
 				hashes[outIndex].Left = &hashes[childIndex]
-				hashes[outIndex].Right = &hashes[remainderIndex]
+				hashes[outIndex].Right = remainder
 				partHash.Write(hashes[childIndex].Hash[:])
-				partHash.Write(hashes[remainderIndex].Hash[:])
+				partHash.Write(remainder.Hash[:])
 				partHash.Sum(hashes[outIndex].Hash[:0])
 				partHash.Reset()
 				outIndex++
-
-				remainderIndex = -1
+				remainder = nil
 				childIndex++
 				added++
 			}
