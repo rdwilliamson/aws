@@ -28,7 +28,7 @@ func (c *Connection) UploadArchive(description string, archive io.ReadSeeker,
 	if err != nil {
 		return "", err
 	}
-	request.Header.Add("x-amz-sha256-tree-hash", string(toHex(ht.Hash[:])))
+	request.Header.Add("x-amz-sha256-tree-hash", string(toHex(ht.hash[:])))
 
 	request.Header.Add("x-amz-content-sha256", string(toHex(hash)))
 	_, err = archive.Seek(0, 0)

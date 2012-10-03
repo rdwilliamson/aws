@@ -27,7 +27,7 @@ func GetTreeHash(r io.Reader) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	return string(toHex(treeHash.Hash[:])), string(toHex(hash)), nil
+	return string(toHex(treeHash.hash[:])), string(toHex(hash)), nil
 }
 
 // TODO method to log things such as x-amzn-RequestId

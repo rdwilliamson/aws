@@ -14,7 +14,7 @@ func TestTreeHash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	treeString := string(toHex(tree.Hash[:]))
+	treeString := string(toHex(tree.hash[:]))
 	fileString := string(toHex(file))
 	if out1 != treeString {
 		t.Fatal("tree hash, wanted:", out1, "got:", treeString)
@@ -40,7 +40,7 @@ func TestTreeHash(t *testing.T) {
 	out3 := "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360"
 	out4 := "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360"
 	tree, file, err = createTreeHash(&in)
-	treeString = string(toHex(tree.Hash[:]))
+	treeString = string(toHex(tree.hash[:]))
 	fileString = string(toHex(file))
 	if out3 != treeString {
 		t.Fatal("tree hash, wanted:", out3, "got:", treeString)
@@ -68,7 +68,7 @@ func TestTreeHash(t *testing.T) {
 	out5 := "560c2c9333c719cb00cfdffee3ba293db17f58743cdd1f7e4055373ae6300afa"
 	out6 := "5256ec18f11624025905d057d6befb03d77b243511ac5f77ed5e0221ce6d84b5"
 	tree, file, err = createTreeHash(&in)
-	treeString = string(toHex(tree.Hash[:]))
+	treeString = string(toHex(tree.hash[:]))
 	fileString = string(toHex(file))
 	if out5 != treeString {
 		t.Fatal("tree hash, wanted:", out5, "got:", treeString)
