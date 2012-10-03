@@ -22,8 +22,8 @@ type TreeHash struct {
 	whole   hash.Hash
 	part    hash.Hash
 	hashers io.Writer
-	hashes  []treeHashNode
 	written int
+	nodes   []treeHashNode
 }
 
 func NewTreeHash() *TreeHash {
@@ -31,48 +31,111 @@ func NewTreeHash() *TreeHash {
 	result.whole = sha256.New()
 	result.part = sha256.New()
 	result.hashers = io.MultiWriter(result.whole, result.part)
-	result.hashes = make([]treeHashNode, 0)
+	result.nodes = make([]treeHashNode, 0)
 	return &result
 }
 
 func (th *TreeHash) Write(p []byte) (n int, err error) {
-	if len(p) > 1024*1024 {
-		th.written = 0
+	// check if we can't fill up remaining chunk
+	if len(p) < 1024*1024-th.written {
+		n, err = th.hashers.Write(p)
+		th.written += n
+		return
 	}
-	var nn int
+
+	// fill remaining chunk
+	nn, _ := th.hashers.Write(p[:1024*1024-th.written])
+	n += nn
+	p = p[nn:]
+	th.nodes = append(th.nodes, treeHashNode{})
+	th.part.Sum(th.nodes[len(th.nodes)-1].Hash[:0])
+	th.part.Reset()
+
+	// write all full chunks
+	th.written = 0
 	for len(p) > 1024*1024 {
 		nn, _ = th.hashers.Write(p[:1024*1024-th.written])
 		n += nn
-		// hash part and add to tree
 		p = p[nn:]
+		th.nodes = append(th.nodes, treeHashNode{})
+		th.part.Sum(th.nodes[len(th.nodes)-1].Hash[:0])
+		th.part.Reset()
 	}
 
-	// complete chunk and write part of next one
-	if th.written+len(p) > 1024*1024 {
-
-	}
-
-	// not enough to complete a 1 MiB chunk
-	if len(p) < 1024*1024-th.written {
-		nn, _ = th.hashers.Write(p)
-		n += nn
-		th.written += nn
-	}
+	th.written, _ = th.hashers.Write(p)
+	n += th.written
 
 	return
 }
 
 func (th *TreeHash) Close() error {
-	// complete last chunk
+	// create last node
+	th.nodes = append(th.nodes, treeHashNode{})
+	th.part.Sum(th.nodes[len(th.nodes)-1].Hash[:0])
+	th.part.Reset()
+
+	// create tree
+	outIndex := len(th.nodes)
+	childIndex := 0
+	added := outIndex
+	remainderIndex := -1
+	for added > 1 || remainderIndex != -1 {
+		children := added
+		added = 0
+		// pair up 
+		for children > 1 {
+			th.nodes = append(th.nodes, treeHashNode{})
+			th.nodes[outIndex].Left = &th.nodes[childIndex]
+			th.nodes[outIndex].Right = &th.nodes[childIndex+1]
+			th.part.Write(th.nodes[childIndex].Hash[:])
+			th.part.Write(th.nodes[childIndex+1].Hash[:])
+			th.part.Sum(th.nodes[outIndex].Hash[:0])
+			th.part.Reset()
+			outIndex++
+
+			children -= 2
+			childIndex += 2
+			added++
+		}
+		if children == 1 {
+			// have a remainder that couldn't be paired up
+			if remainderIndex == -1 {
+				// hold on to remainder for later
+				remainderIndex = childIndex
+				childIndex++
+			} else {
+				// join with existing remainder
+				th.nodes = append(th.nodes, treeHashNode{})
+				th.nodes[outIndex].Left = &th.nodes[childIndex]
+				th.nodes[outIndex].Right = &th.nodes[remainderIndex]
+				th.part.Write(th.nodes[childIndex].Hash[:])
+				th.part.Write(th.nodes[remainderIndex].Hash[:])
+				th.part.Sum(th.nodes[outIndex].Hash[:0])
+				th.part.Reset()
+				outIndex++
+
+				remainderIndex = -1
+				childIndex++
+				added++
+			}
+		}
+	}
 	return nil
 }
 
 func (th *TreeHash) TreeHash() string {
-	return ""
+	return string(toHex(th.nodes[len(th.nodes)-1].Hash[:]))
 }
 
 func (th *TreeHash) Hash() string {
-	return ""
+	return string(toHex(th.whole.Sum(nil)))
+}
+
+func (th *TreeHash) Reset() {
+	th.whole.Reset()
+	th.part.Reset()
+	th.written = 0
+	th.nodes = th.nodes[:0]
 }
 
 // TODO hash entire file at the same time
