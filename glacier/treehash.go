@@ -39,7 +39,7 @@ func (th *TreeHash) Write(p []byte) (n int, err error) {
 	// check if we can't fill up remaining chunk
 	if len(p) < 1024*1024-th.written {
 		th.written, _ = th.hashers.Write(p)
-		th.written += n
+		n += th.written
 		return
 	}
 
