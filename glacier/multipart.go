@@ -7,19 +7,28 @@ import (
 	"github.com/rdwilliamson/aws"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 type Multipart struct {
 	ArchiveDescription string
+	CreationDate       time.Time
+	MultipartUploadId  string
+	PartSizeInBytes    uint
+	VaultARN           string
+}
+
+type multipart struct {
+	ArchiveDescription *string
 	CreationDate       string
 	MultipartUploadId  string
-	PartSizeInBytes    int
+	PartSizeInBytes    uint
 	VaultARN           string
 }
 
 type multipartList struct {
-	Marker      string
-	UploadsList []Multipart
+	Marker      *string
+	UploadsList []multipart
 }
 
 func (c *Connection) InitiateMultipart(vault string, size uint,
@@ -236,7 +245,7 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 	if err != nil {
 		return nil, "", err
 	}
-	response.Body.Close()
+	err1 := response.Body.Close()
 
 	if response.StatusCode != 200 {
 		var e aws.Error
@@ -247,12 +256,30 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 		return nil, "", &e
 	}
 
-	// unmarshal...
-	var parts multipartList
-	err = json.Unmarshal(body, &parts)
+	var list multipartList
+	err = json.Unmarshal(body, &list)
 	if err != nil {
 		return nil, "", err
 	}
 
-	return parts.UploadsList, parts.Marker, nil
+	parts := make([]Multipart, len(list.UploadsList))
+	for i, v := range list.UploadsList {
+		if v.ArchiveDescription != nil {
+			parts[i].ArchiveDescription = *v.ArchiveDescription
+		}
+		parts[i].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
+		if err != nil && err1 == nil {
+			err1 = err
+		}
+		parts[i].MultipartUploadId = v.MultipartUploadId
+		parts[i].PartSizeInBytes = v.PartSizeInBytes
+		parts[i].VaultARN = v.VaultARN
+	}
+
+	var m string
+	if list.Marker != nil {
+		m = *list.Marker
+	}
+
+	return parts, m, nil
 }
