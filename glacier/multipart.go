@@ -119,13 +119,11 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint,
 	return nil
 }
 
-func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string,
-	size uint) (string, error) {
+func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size uint) (string, error) {
 	request, err := http.NewRequest("POST", "https://"+
 		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads/"+
 		uploadId, nil)
 	if err != nil {
-		panic(err)
 		return "", err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
@@ -135,31 +133,23 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string,
 
 	err = c.Signature.Sign(request, nil, nil)
 	if err != nil {
-		panic(err)
 		return "", err
 	}
 
 	response, err := c.Client.Do(request)
 	if err != nil {
-		panic(err)
 		return "", err
 	}
 
 	if response.StatusCode != 201 {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
-			panic(err)
 			return "", err
 		}
-		err = response.Body.Close()
-		if err != nil {
-			panic(err)
-			return "", err
-		}
+		response.Body.Close()
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
-			panic(err)
 			return "", err
 		}
 		return "", e
@@ -168,7 +158,36 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string,
 	return response.Header.Get("x-amz-archive-id"), nil
 }
 
-func (c *Connection) AbortMultipart() error {
+func (c *Connection) AbortMultipart(vault, uploadId string) error {
+	request, err := http.NewRequest("DELETE", "https://"+
+		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads/"+
+		uploadId, nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	c.Signature.Sign(request, nil, nil)
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != 204 {
+		body, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			return err
+		}
+		response.Body.Close()
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return err
+		}
+		return e
+	}
+
 	return nil
 }
 
