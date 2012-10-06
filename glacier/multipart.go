@@ -9,6 +9,19 @@ import (
 	"net/http"
 )
 
+type Multipart struct {
+	ArchiveDescription string
+	CreationDate       string
+	MultipartUploadId  string
+	PartSizeInBytes    int
+	VaultARN           string
+}
+
+type multipartList struct {
+	Marker      string
+	UploadsList []Multipart
+}
+
 func (c *Connection) InitiateMultipart(vault string, size uint,
 	description string) (string, error) {
 	request, err := http.NewRequest("POST", "https://"+
@@ -195,6 +208,51 @@ func (c *Connection) ListMultipartParts() error {
 	return nil
 }
 
-func (c *Connection) ListMultipartUploads() error {
-	return nil
+func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Multipart, string, error) {
+	request, err := http.NewRequest("GET", "https://"+
+		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads",
+		nil)
+	if err != nil {
+		return nil, "", err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	// TODO validate limit
+	if limit > 0 {
+		request.Header.Add("limit", fmt.Sprint(limit))
+	}
+	if marker != "" {
+		request.Header.Add("marker", marker)
+	}
+
+	c.Signature.Sign(request, nil, nil)
+
+	response, err := c.Client.Do(request)
+	if err != nil {
+		return nil, "", err
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, "", err
+	}
+	response.Body.Close()
+
+	if response.StatusCode != 200 {
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return nil, "", err
+		}
+		return nil, "", &e
+	}
+
+	// unmarshal...
+	var parts multipartList
+	err = json.Unmarshal(body, &parts)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return parts.UploadsList, parts.Marker, nil
 }
