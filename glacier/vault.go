@@ -103,10 +103,10 @@ func (c *Connection) DeleteVault(name string) error {
 	return nil
 }
 
-func (c *Connection) DescribeVault(name string) (Vault, error) {
+func (c *Connection) DescribeVault(name string) (*Vault, error) {
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
 	if err != nil {
-		return Vault{}, err
+		return nil, err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
@@ -114,43 +114,43 @@ func (c *Connection) DescribeVault(name string) (Vault, error) {
 
 	response, err := c.Client.Do(request)
 	if err != nil {
-		return Vault{}, err
+		return nil, err
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return Vault{}, err
+		return nil, err
 	}
 	err = response.Body.Close()
 	if err != nil {
-		return Vault{}, err
+		return nil, err
 	}
 
 	if response.StatusCode != 200 {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
-			return Vault{}, err
+			return nil, err
 		}
-		return Vault{}, &e
+		return nil, &e
 	}
 
 	var v vault
 	err = json.Unmarshal(body, &v)
 	if err != nil {
-		return Vault{}, err
+		return nil, err
 	}
 
 	var result Vault
+	var err1 error
 	result.CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
 	if err != nil {
-		return Vault{}, err
+		err1 = err
 	}
 	if v.LastInventoryDate != nil {
-		result.LastInventoryDate, err =
-			time.Parse(time.RFC3339, *v.LastInventoryDate)
-		if err != nil {
-			return Vault{}, err
+		result.LastInventoryDate, err = time.Parse(time.RFC3339, *v.LastInventoryDate)
+		if err != nil && err1 == nil {
+			err1 = err
 		}
 	}
 	result.NumberOfArchives = v.NumberOfArchives
@@ -158,7 +158,7 @@ func (c *Connection) DescribeVault(name string) (Vault, error) {
 	result.VaultARN = v.VaultARN
 	result.VaultName = v.VaultName
 
-	return result, nil
+	return &result, err1
 }
 
 func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, error) {
@@ -215,15 +215,16 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 	}
 
 	result := make([]Vault, len(vaults.VaultList))
+	var err1 error
 	for i, v := range vaults.VaultList {
 		result[i].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
-		if err != nil {
-			return nil, "", err
+		if err != nil && err1 == nil {
+			err1 = err
 		}
 		if v.LastInventoryDate != nil {
 			result[i].LastInventoryDate, err = time.Parse(time.RFC3339, *v.LastInventoryDate)
-			if err != nil {
-				return nil, "", err
+			if err != nil && err1 == nil {
+				err1 = err
 			}
 		}
 		result[i].NumberOfArchives = v.NumberOfArchives
@@ -237,7 +238,7 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 		resultMarker = *vaults.Marker
 	}
 
-	return result, resultMarker, nil
+	return result, resultMarker, err1
 }
 
 func (c *Connection) SetVaultNotifications(name string, n *Notifications) error {

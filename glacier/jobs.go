@@ -254,11 +254,11 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.Rea
 	return response.Body, nil
 }
 
-func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
+func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
 		"/output", nil)
 	if err != nil {
-		return Inventory{}, err
+		return nil, err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
@@ -266,25 +266,25 @@ func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
 
 	response, err := c.Client.Do(request)
 	if err != nil {
-		return Inventory{}, err
+		return nil, err
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return Inventory{}, err
+		return nil, err
 	}
 	err = response.Body.Close()
 	if err != nil {
-		return Inventory{}, err
+		return nil, err
 	}
 
 	if response.StatusCode != 200 {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
-			return Inventory{}, err
+			return nil, err
 		}
-		return Inventory{}, &e
+		return nil, &e
 	}
 
 	var i struct {
@@ -300,28 +300,29 @@ func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
 	}
 	err = json.Unmarshal(body, &i)
 	if err != nil {
-		return Inventory{}, err
+		return nil, err
 	}
 
 	var result Inventory
 	result.VaultARN = i.VaultARN
 	result.InventoryDate, err = time.Parse(time.RFC3339, i.InventoryDate)
 	if err != nil {
-		return Inventory{}, err
+		return nil, err
 	}
 	result.ArchiveList = make([]Archive, len(i.ArchiveList))
+	var err1 error
 	for j, v := range i.ArchiveList {
 		result.ArchiveList[j].ArchiveId = v.ArchiveId
 		result.ArchiveList[j].ArchiveDescription = v.ArchiveDescription
 		result.ArchiveList[j].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
-		if err != nil {
-			return Inventory{}, err
+		if err != nil && err1 == nil {
+			err1 = err
 		}
 		result.ArchiveList[j].Size = v.Size
 		result.ArchiveList[j].SHA256TreeHash = v.SHA256TreeHash
 	}
 
-	return result, nil
+	return &result, err
 }
 
 func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit int) ([]Job, string, error) {
@@ -402,12 +403,12 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 		jobs[i].Completed = v.Completed
 		if v.CompletionDate != nil {
 			jobs[i].CompletionDate, err = time.Parse(time.RFC3339, *v.CompletionDate)
-		}
-		if err != nil {
-			err1 = err
+			if err != nil && err1 == nil {
+				err1 = err
+			}
 		}
 		jobs[i].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
-		if err != nil {
+		if err != nil && err1 == nil {
 			err1 = err
 		}
 		if v.InventorySizeInBytes != nil {
