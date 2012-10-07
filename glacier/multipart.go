@@ -93,7 +93,7 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 		if err != nil {
 			return "", err
 		}
-		return "", e
+		return "", &e
 	}
 
 	return response.Header.Get("x-amz-multipart-upload-id"), nil
@@ -147,7 +147,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body i
 		if err != nil {
 			return err
 		}
-		return e
+		return &e
 	}
 
 	return nil
@@ -182,7 +182,7 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 		if err != nil {
 			return "", err
 		}
-		return "", e
+		return "", &e
 	}
 
 	return response.Header.Get("x-amz-archive-id"), nil

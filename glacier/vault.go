@@ -67,7 +67,7 @@ func (c *Connection) CreateVault(name string) error {
 		if err != nil {
 			return err
 		}
-		return e
+		return &e
 	}
 
 	return nil
@@ -101,7 +101,7 @@ func (c *Connection) DeleteVault(name string) error {
 		if err != nil {
 			return err
 		}
-		return e
+		return &e
 	}
 
 	return nil
@@ -136,7 +136,7 @@ func (c *Connection) DescribeVault(name string) (Vault, error) {
 		if err != nil {
 			return Vault{}, err
 		}
-		return Vault{}, e
+		return Vault{}, &e
 	}
 
 	var v vault
@@ -206,7 +206,7 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 		if err != nil {
 			return "", nil, err
 		}
-		return "", nil, e
+		return "", nil, &e
 	}
 
 	var vaults vaultsList
@@ -278,7 +278,7 @@ func (c *Connection) SetVaultNotifications(name string, n Notifications) error {
 		if err != nil {
 			return err
 		}
-		return e
+		return &e
 	}
 
 	return nil
@@ -316,7 +316,7 @@ func (c *Connection) GetVaultNotifications(name string) (Notifications, error) {
 		if err != nil {
 			return results, err
 		}
-		return results, e
+		return results, &e
 	}
 
 	err = json.Unmarshal(body, &results)
@@ -356,7 +356,7 @@ func (c *Connection) DeleteVaultNotifications(name string) error {
 		if err != nil {
 			return err
 		}
-		return e
+		return &e
 	}
 
 	return nil

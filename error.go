@@ -6,6 +6,6 @@ type Error struct {
 	Type    string `json:"type"`
 }
 
-func (e Error) Error() string {
+func (e *Error) Error() string {
 	return e.Code + ": " + e.Type + ": " + e.Message
 }

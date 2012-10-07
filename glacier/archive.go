@@ -64,7 +64,7 @@ func (c *Connection) UploadArchive(description string, archive io.ReadSeeker, va
 		if err != nil {
 			return "", err
 		}
-		return "", e
+		return "", &e
 	}
 
 	return response.Header.Get("Location"), nil
@@ -99,7 +99,7 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 		if err != nil {
 			return err
 		}
-		return e
+		return &e
 	}
 
 	return nil

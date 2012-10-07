@@ -119,7 +119,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 		if err != nil {
 			return "", err
 		}
-		return "", e
+		return "", &e
 	}
 
 	return response.Header.Get("x-amz-job-id"), nil
@@ -161,7 +161,7 @@ func (c *Connection) InitiateInventoryJob(vault, description, topic string) (str
 		if err != nil {
 			return "", err
 		}
-		return "", e
+		return "", &e
 	}
 
 	return response.Header.Get("x-amz-job-id"), nil
@@ -266,7 +266,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.Rea
 		if err != nil {
 			return nil, err
 		}
-		return nil, e
+		return nil, &e
 	}
 
 	// TODO return content range and x-amz-sha256-tree-hash
@@ -303,7 +303,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
 		if err != nil {
 			return Inventory{}, err
 		}
-		return Inventory{}, e
+		return Inventory{}, &e
 	}
 
 	var i inventory
@@ -386,7 +386,7 @@ func (c *Connection) ListJobs(vault, completed, limit, marker, statusCode string
 		if err != nil {
 			return nil, "", err
 		}
-		return nil, "", e
+		return nil, "", &e
 	}
 
 	var jl jobList
