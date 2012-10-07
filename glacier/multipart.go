@@ -1,10 +1,10 @@
 package glacier
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/rdwilliamson/aws"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -29,6 +29,31 @@ type multipart struct {
 type multipartList struct {
 	Marker      *string
 	UploadsList []multipart
+}
+
+type MultipartPart struct {
+	RangeInBytes   string
+	SHA256TreeHash string
+}
+
+type multipartParts struct {
+	ArchiveDescription string
+	CreationDate       string
+	Marker             *string
+	MultipartUploadId  string
+	PartSizeInBytes    uint
+	Parts              []MultipartPart
+	VaultARN           string
+}
+
+type MultipartParts struct {
+	ArchiveDescription string
+	CreationDate       time.Time
+	Marker             string
+	MultipartUploadId  string
+	PartSizeInBytes    uint
+	Parts              []MultipartPart
+	VaultARN           string
 }
 
 func (c *Connection) InitiateMultipart(vault string, size uint,
@@ -101,6 +126,13 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body i
 		return err
 	}
 
+	request.Header.Add("x-amz-content-sha256", th.Hash())
+	request.Header.Add("x-amz-sha256-tree-hash", th.TreeHash())
+	request.Header.Add("Content-Range", fmt.Sprintf("bytes %d-%d/*", start, start+n-1))
+	request.ContentLength = n
+
+	c.Signature.Sign(request, nil, th.HashBytes())
+
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return err
@@ -142,13 +174,6 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 	if err != nil {
 		return "", err
 	}
-
-	request.Header.Add("x-amz-content-sha256", th.Hash())
-	request.Header.Add("x-amz-sha256-tree-hash", th.TreeHash())
-	request.Header.Add("Content-Range", fmt.Sprintf("bytes %d-%d/*", start, start+n-1))
-	request.ContentLength = n
-
-	c.Signature.Sign(request, nil, th.HashBytes())
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -205,8 +230,62 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 	return nil
 }
 
-func (c *Connection) ListMultipartParts() error {
-	return nil
+func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit int) (*MultipartParts, error) {
+	request, err := http.NewRequest("GET", "https://"+
+		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads/"+
+		uploadId, nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Add("x-amz-glacier-version", "2012-06-01")
+
+	// TODO validate limit
+	if limit > 0 {
+		request.Header.Add("limit", fmt.Sprint(limit))
+	}
+	if marker != "" {
+		request.Header.Add("marker", marker)
+	}
+
+	c.Signature.Sign(request, nil, nil)
+
+	response, err := c.Client.Do(request)
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	response.Body.Close()
+
+	if response.StatusCode != 200 {
+		var e aws.Error
+		err = json.Unmarshal(body, &e)
+		if err != nil {
+			return nil, err
+		}
+		return nil, &e
+	}
+
+	fmt.Println(string(body))
+
+	var list multipartParts
+	err = json.Unmarshal(body, &list)
+	if err != nil {
+		return nil, err
+	}
+
+	var result MultipartParts
+	result.ArchiveDescription = list.ArchiveDescription
+	result.CreationDate, err = time.Parse(time.RFC3339, list.CreationDate)
+	if list.Marker != nil {
+		result.Marker = *list.Marker
+	}
+	result.MultipartUploadId = list.MultipartUploadId
+	result.PartSizeInBytes = list.PartSizeInBytes
+	result.Parts = list.Parts
+	result.VaultARN = list.VaultARN
+
+	return &result, nil
 }
 
 func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Multipart, string, error) {
