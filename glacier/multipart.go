@@ -191,7 +191,7 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 		if err != nil {
 			return err
 		}
-		return e
+		return &e
 	}
 
 	return nil
