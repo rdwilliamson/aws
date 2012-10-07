@@ -179,6 +179,7 @@ func (c *Connection) DescribeVault(name string) (Vault, error) {
 
 func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, error) {
 	if limit < 0 || limit > 1000 {
+		// TODO return predeclared variable
 		return "", nil, errors.New("limit must be 1 through 1000")
 	}
 
@@ -205,8 +206,6 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 	if err != nil {
 		return "", nil, err
 	}
-
-	// TODO log x-amzn-RequestId
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
