@@ -87,15 +87,12 @@ type jobList struct {
 	JobList []job
 }
 
-func (c *Connection) InitiateRetrievalJob(vault, archive, topic,
-	description string) (string, error) {
-	j := jobRequest{Type: "archive-retrieval", ArchiveId: archive,
-		Description: description, SNSTopic: topic}
+func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description string) (string, error) {
+	j := jobRequest{Type: "archive-retrieval", ArchiveId: archive, Description: description, SNSTopic: topic}
 	rawBody, _ := json.Marshal(j)
 	body := bytes.NewReader(rawBody)
 
-	request, err := http.NewRequest("POST",
-		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs", body)
+	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs", body)
 	if err != nil {
 		return "", err
 	}
@@ -131,10 +128,8 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic,
 	return response.Header.Get("x-amz-job-id"), nil
 }
 
-func (c *Connection) InitiateInventoryJob(vault, description,
-	topic string) (string, error) {
-	j := jobRequest{Type: "inventory-retrieval", Description: description,
-		SNSTopic: topic}
+func (c *Connection) InitiateInventoryJob(vault, description, topic string) (string, error) {
+	j := jobRequest{Type: "inventory-retrieval", Description: description, SNSTopic: topic}
 	rawBody, err := json.Marshal(j)
 	if err != nil {
 		return "", err
@@ -179,9 +174,7 @@ func (c *Connection) InitiateInventoryJob(vault, description,
 }
 
 func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
-	request, err := http.NewRequest("GET", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+jobId,
-		nil)
+	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+jobId, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -250,9 +243,8 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 }
 
 func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.ReadCloser, error) {
-	request, err := http.NewRequest("GET", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+"/output",
-		nil)
+	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
+		"/output", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -288,9 +280,8 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.Rea
 }
 
 func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
-	request, err := http.NewRequest("GET", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+"/output",
-		nil)
+	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
+		"/output", nil)
 	if err != nil {
 		return Inventory{}, err
 	}
@@ -340,8 +331,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
 	for j, v := range i.ArchiveList {
 		result.ArchiveList[j].ArchiveId = v.ArchiveId
 		result.ArchiveList[j].ArchiveDescription = v.ArchiveDescription
-		result.ArchiveList[j].CreationDate, err = time.Parse(time.RFC3339,
-			v.CreationDate)
+		result.ArchiveList[j].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
 		if err != nil {
 			return Inventory{}, err
 		}
@@ -352,10 +342,8 @@ func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
 	return result, nil
 }
 
-func (c *Connection) ListJobs(vault, completed, limit, marker,
-	statusCode string) ([]Job, string, error) {
-	get, err := url.Parse("https://" + c.Signature.Region.Glacier +
-		"/-/vaults/" + vault + "/jobs")
+func (c *Connection) ListJobs(vault, completed, limit, marker, statusCode string) ([]Job, string, error) {
+	get, err := url.Parse("https://" + c.Signature.Region.Glacier + "/-/vaults/" + vault + "/jobs")
 	if err != nil {
 		return nil, "", err
 	}

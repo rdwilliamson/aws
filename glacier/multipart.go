@@ -56,10 +56,9 @@ type MultipartParts struct {
 	VaultARN           string
 }
 
-func (c *Connection) InitiateMultipart(vault string, size uint,
-	description string) (string, error) {
-	request, err := http.NewRequest("POST", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads", nil)
+func (c *Connection) InitiateMultipart(vault string, size uint, description string) (string, error) {
+	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
+		"/multipart-uploads", nil)
 	if err != nil {
 		return "", err
 	}
@@ -106,9 +105,8 @@ func (c *Connection) InitiateMultipart(vault string, size uint,
 func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body io.ReadSeeker) error {
 	// TODO check that data size and start location make sense
 
-	request, err := http.NewRequest("PUT", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads/"+
-		uploadId, body)
+	request, err := http.NewRequest("PUT", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
+		"/multipart-uploads/"+uploadId, body)
 	if err != nil {
 		return err
 	}
@@ -159,9 +157,8 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body i
 }
 
 func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size uint) (string, error) {
-	request, err := http.NewRequest("POST", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads/"+
-		uploadId, nil)
+	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
+		"/multipart-uploads/"+uploadId, nil)
 	if err != nil {
 		return "", err
 	}
@@ -198,9 +195,8 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 }
 
 func (c *Connection) AbortMultipart(vault, uploadId string) error {
-	request, err := http.NewRequest("DELETE", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads/"+
-		uploadId, nil)
+	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
+		"/multipart-uploads/"+uploadId, nil)
 	if err != nil {
 		return err
 	}
@@ -231,9 +227,8 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 }
 
 func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit int) (*MultipartParts, error) {
-	request, err := http.NewRequest("GET", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads/"+
-		uploadId, nil)
+	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
+		"/multipart-uploads/"+uploadId, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -289,9 +284,8 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 }
 
 func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Multipart, string, error) {
-	request, err := http.NewRequest("GET", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads",
-		nil)
+	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
+		"/multipart-uploads", nil)
 	if err != nil {
 		return nil, "", err
 	}

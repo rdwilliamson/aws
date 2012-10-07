@@ -8,10 +8,8 @@ import (
 	"net/http"
 )
 
-func (c *Connection) UploadArchive(description string, archive io.ReadSeeker,
-	vault string) (string, error) {
-	request, err := http.NewRequest("POST",
-		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives",
+func (c *Connection) UploadArchive(description string, archive io.ReadSeeker, vault string) (string, error) {
+	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives",
 		archive)
 	if err != nil {
 		return "", err
@@ -76,8 +74,8 @@ func (c *Connection) UploadArchive(description string, archive io.ReadSeeker,
 }
 
 func (c *Connection) DeleteArchive(vault, archive string) error {
-	request, err := http.NewRequest("DELETE", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives/"+archive, nil)
+	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives/"+
+		archive, nil)
 	if err != nil {
 		return err
 	}

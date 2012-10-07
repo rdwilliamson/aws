@@ -132,8 +132,7 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	// TODO compare request date to signature date? or have signature update
 	// when it expires? or have whatever is using signature check it?
 
-	credential := s.Date + "/" + s.Region.Name + "/" + s.Service +
-		"/aws4_request"
+	credential := s.Date + "/" + s.Region.Name + "/" + s.Service + "/aws4_request"
 
 	// create canonical request
 	var crb bytes.Buffer // canonical request buffer

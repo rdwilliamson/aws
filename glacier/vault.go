@@ -40,8 +40,7 @@ type Notifications struct {
 }
 
 func (c *Connection) CreateVault(name string) error {
-	request, err := http.NewRequest("PUT",
-		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
+	request, err := http.NewRequest("PUT", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
 	if err != nil {
 		return err
 	}
@@ -78,8 +77,7 @@ func (c *Connection) CreateVault(name string) error {
 }
 
 func (c *Connection) DeleteVault(name string) error {
-	request, err := http.NewRequest("DELETE",
-		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
+	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
 	if err != nil {
 		return err
 	}
@@ -116,8 +114,7 @@ func (c *Connection) DeleteVault(name string) error {
 }
 
 func (c *Connection) DescribeVault(name string) (Vault, error) {
-	request, err := http.NewRequest("GET",
-		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
+	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
 	if err != nil {
 		return Vault{}, err
 	}
@@ -183,8 +180,7 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 		return "", nil, errors.New("limit must be 1 through 1000")
 	}
 
-	request, err := http.NewRequest("GET",
-		"https://"+c.Signature.Region.Glacier+"/-/vaults", nil)
+	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults", nil)
 	if err != nil {
 		return "", nil, err
 	}
@@ -233,14 +229,12 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 
 	responseVaults := make([]Vault, len(vaults.VaultList))
 	for i := range responseVaults {
-		responseVaults[i].CreationDate, err =
-			time.Parse(time.RFC3339, vaults.VaultList[i].CreationDate)
+		responseVaults[i].CreationDate, err = time.Parse(time.RFC3339, vaults.VaultList[i].CreationDate)
 		if err != nil {
 			return "", nil, err
 		}
 		if vaults.VaultList[i].LastInventoryDate != nil {
-			responseVaults[i].LastInventoryDate, err =
-				time.Parse(time.RFC3339, *vaults.VaultList[i].LastInventoryDate)
+			responseVaults[i].LastInventoryDate, err = time.Parse(time.RFC3339, *vaults.VaultList[i].LastInventoryDate)
 			if err != nil {
 				return "", nil, err
 			}
@@ -266,8 +260,7 @@ func (c *Connection) SetVaultNotifications(name string, n Notifications) error {
 	}
 	bodyReader := bytes.NewReader(body)
 
-	request, err := http.NewRequest("PUT", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+name+
+	request, err := http.NewRequest("PUT", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name+
 		"/notification-configuration", bodyReader)
 	if err != nil {
 		return err
@@ -308,8 +301,7 @@ func (c *Connection) SetVaultNotifications(name string, n Notifications) error {
 func (c *Connection) GetVaultNotifications(name string) (Notifications, error) {
 	var results Notifications
 
-	request, err := http.NewRequest("GET", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+name+
+	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name+
 		"/notification-configuration", nil)
 	if err != nil {
 		return results, err
@@ -353,8 +345,7 @@ func (c *Connection) GetVaultNotifications(name string) (Notifications, error) {
 }
 
 func (c *Connection) DeleteVaultNotifications(name string) error {
-	request, err := http.NewRequest("DELETE", "https://"+
-		c.Signature.Region.Glacier+"/-/vaults/"+name+
+	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name+
 		"/notification-configuration", nil)
 	if err != nil {
 		return err
