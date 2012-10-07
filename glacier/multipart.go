@@ -18,32 +18,9 @@ type Multipart struct {
 	VaultARN           string
 }
 
-type multipart struct {
-	ArchiveDescription *string
-	CreationDate       string
-	MultipartUploadId  string
-	PartSizeInBytes    uint
-	VaultARN           string
-}
-
-type multipartList struct {
-	Marker      *string
-	UploadsList []multipart
-}
-
 type MultipartPart struct {
 	RangeInBytes   string
 	SHA256TreeHash string
-}
-
-type multipartParts struct {
-	ArchiveDescription string
-	CreationDate       string
-	Marker             *string
-	MultipartUploadId  string
-	PartSizeInBytes    uint
-	Parts              []MultipartPart
-	VaultARN           string
 }
 
 type MultipartParts struct {
@@ -257,7 +234,15 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 
 	fmt.Println(string(body))
 
-	var list multipartParts
+	var list struct {
+		ArchiveDescription string
+		CreationDate       string
+		Marker             *string
+		MultipartUploadId  string
+		PartSizeInBytes    uint
+		Parts              []MultipartPart
+		VaultARN           string
+	}
 	err = json.Unmarshal(body, &list)
 	if err != nil {
 		return nil, err
@@ -315,7 +300,16 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 		return nil, "", &e
 	}
 
-	var list multipartList
+	var list struct {
+		Marker      *string
+		UploadsList []struct {
+			ArchiveDescription *string
+			CreationDate       string
+			MultipartUploadId  string
+			PartSizeInBytes    uint
+			VaultARN           string
+		}
+	}
 	err = json.Unmarshal(body, &list)
 	if err != nil {
 		return nil, "", err

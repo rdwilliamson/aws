@@ -29,10 +29,6 @@ type vault struct {
 	VaultARN          string
 	VaultName         string
 }
-type vaultsList struct {
-	Marker    *string
-	VaultList []vault
-}
 
 type Notifications struct {
 	Events   []string
@@ -209,7 +205,10 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 		return "", nil, &e
 	}
 
-	var vaults vaultsList
+	var vaults struct {
+		Marker    *string
+		VaultList []vault
+	}
 	err = json.Unmarshal(body, &vaults)
 	if err != nil {
 		return "", nil, err

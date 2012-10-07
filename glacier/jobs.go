@@ -34,20 +34,6 @@ type Inventory struct {
 	ArchiveList   []Archive
 }
 
-// TODO write unmarshaler instead of using these structs
-type archive struct {
-	ArchiveId          string
-	ArchiveDescription string
-	CreationDate       string
-	Size               uint64
-	SHA256TreeHash     string
-}
-type inventory struct {
-	VaultARN      string
-	InventoryDate string
-	ArchiveList   []archive
-}
-
 type Job struct {
 	Action               string
 	ArchiveId            string
@@ -65,7 +51,6 @@ type Job struct {
 	VaultARN             string
 }
 
-// TODO write unmarshaler instead of using these structs
 type job struct {
 	Action               string
 	ArchiveId            *string
@@ -81,10 +66,6 @@ type job struct {
 	StatusCode           string
 	StatusMessage        *string
 	VaultARN             string
-}
-type jobList struct {
-	Marker  *string
-	JobList []job
 }
 
 func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description string) (string, error) {
@@ -306,7 +287,17 @@ func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
 		return Inventory{}, &e
 	}
 
-	var i inventory
+	var i struct {
+		VaultARN      string
+		InventoryDate string
+		ArchiveList   []struct {
+			ArchiveId          string
+			ArchiveDescription string
+			CreationDate       string
+			Size               uint64
+			SHA256TreeHash     string
+		}
+	}
 	err = json.Unmarshal(body, &i)
 	if err != nil {
 		return Inventory{}, err
@@ -389,7 +380,10 @@ func (c *Connection) ListJobs(vault, completed, limit, marker, statusCode string
 		return nil, "", &e
 	}
 
-	var jl jobList
+	var jl struct {
+		Marker  *string
+		JobList []job
+	}
 	err = json.Unmarshal(body, &jl)
 	if err != nil {
 		return nil, "", err
