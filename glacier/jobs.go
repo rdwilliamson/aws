@@ -98,10 +98,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, body, nil)
-	if err != nil {
-		return "", err
-	}
+	c.Signature.Sign(request, body, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -143,10 +140,7 @@ func (c *Connection) InitiateInventoryJob(vault, description, topic string) (str
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, body, nil)
-	if err != nil {
-		return "", err
-	}
+	c.Signature.Sign(request, body, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -287,10 +281,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return Inventory{}, err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {

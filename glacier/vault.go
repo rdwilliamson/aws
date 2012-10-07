@@ -46,10 +46,7 @@ func (c *Connection) CreateVault(name string) error {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -83,10 +80,7 @@ func (c *Connection) DeleteVault(name string) error {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -120,10 +114,7 @@ func (c *Connection) DescribeVault(name string) (Vault, error) {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return Vault{}, err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -193,10 +184,7 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 		request.Header.Add("marker", "")
 	}
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return "", nil, err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -267,10 +255,8 @@ func (c *Connection) SetVaultNotifications(name string, n Notifications) error {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, bodyReader, nil)
-	if err != nil {
-		return err
-	}
+	c.Signature.Sign(request, bodyReader, nil)
+
 	bodyReader.Seek(0, 0)
 
 	response, err := c.Client.Do(request)
@@ -308,10 +294,7 @@ func (c *Connection) GetVaultNotifications(name string) (Notifications, error) {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return results, err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -352,10 +335,7 @@ func (c *Connection) DeleteVaultNotifications(name string) error {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {

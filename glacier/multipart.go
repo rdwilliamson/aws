@@ -71,10 +71,7 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 		request.Header.Add("x-amz-archive-description", description)
 	}
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return "", err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -167,10 +164,7 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 	request.Header.Add("x-amz-sha256-tree-hash", treeHash)
 	request.Header.Add("x-amz-archive-size", fmt.Sprint(size))
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return "", err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {

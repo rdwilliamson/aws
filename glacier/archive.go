@@ -34,10 +34,7 @@ func (c *Connection) UploadArchive(description string, archive io.ReadSeeker, va
 		return "", err
 	}
 
-	err = c.Signature.Sign(request, nil, hash)
-	if err != nil {
-		return "", err
-	}
+	c.Signature.Sign(request, nil, hash)
 
 	request.ContentLength, err = archive.Seek(0, 2)
 	if err != nil {
@@ -81,10 +78,7 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	err = c.Signature.Sign(request, nil, nil)
-	if err != nil {
-		return err
-	}
+	c.Signature.Sign(request, nil, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
