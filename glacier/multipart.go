@@ -78,12 +78,9 @@ func (c *Connection) InitiateMultipart(vault string, size uint,
 	return response.Header.Get("x-amz-multipart-upload-id"), nil
 }
 
-// reader or []byte?
-func (c *Connection) UploadMultipart(vault, uploadId string, start uint,
-	data []byte) error {
+func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body io.ReadSeeker) error {
 	// TODO check that data size and start location make sense
 
-	body := bytes.NewReader(data)
 	request, err := http.NewRequest("PUT", "https://"+
 		c.Signature.Region.Glacier+"/-/vaults/"+vault+"/multipart-uploads/"+
 		uploadId, body)
@@ -92,25 +89,13 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint,
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	request.Header.Add("Content-Range", fmt.Sprintf("bytes %d-%d/*", start,
-		start+uint(len(data))-1))
-
-	ht, hash, err := createTreeHash(body)
+	th := NewTreeHash()
+	n, err := io.Copy(th, body)
 	if err != nil {
 		return err
 	}
-	request.Header.Add("x-amz-content-sha256", string(toHex(hash)))
-	request.Header.Add("x-amz-sha256-tree-hash", string(toHex(ht.hash[:])))
+	th.Close()
 
-	err = c.Signature.Sign(request, nil, hash)
-	if err != nil {
-		return err
-	}
-
-	request.ContentLength, err = body.Seek(0, 2)
-	if err != nil {
-		return err
-	}
 	_, err = body.Seek(0, 0)
 	if err != nil {
 		return err
@@ -157,6 +142,13 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 	if err != nil {
 		return "", err
 	}
+
+	request.Header.Add("x-amz-content-sha256", th.Hash())
+	request.Header.Add("x-amz-sha256-tree-hash", th.TreeHash())
+	request.Header.Add("Content-Range", fmt.Sprintf("bytes %d-%d/*", start, start+n-1))
+	request.ContentLength = n
+
+	c.Signature.Sign(request, nil, th.HashBytes())
 
 	response, err := c.Client.Do(request)
 	if err != nil {
