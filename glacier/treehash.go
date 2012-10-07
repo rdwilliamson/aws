@@ -38,8 +38,8 @@ func NewTreeHash() *TreeHash {
 func (th *TreeHash) Write(p []byte) (n int, err error) {
 	// check if we can't fill up remaining chunk
 	if len(p) < 1024*1024-th.written {
-		th.written, _ = th.hashers.Write(p)
-		n += th.written
+		n, _ = th.hashers.Write(p)
+		th.written += n
 		return
 	}
 
@@ -133,6 +133,10 @@ func (th *TreeHash) TreeHash() string {
 
 func (th *TreeHash) Hash() string {
 	return string(toHex(th.whole.Sum(nil)))
+}
+
+func (th *TreeHash) HashBytes() []byte {
+	return th.whole.Sum(nil)
 }
 
 func (th *TreeHash) Reset() {
