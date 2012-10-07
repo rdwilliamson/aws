@@ -2,7 +2,6 @@ package glacier
 
 import (
 	"github.com/rdwilliamson/aws"
-	"io"
 	"net/http"
 )
 
@@ -20,14 +19,6 @@ func NewConnection(secret, access string, r *aws.Region) *Connection {
 	// TODO a go routine to create a new signature when the date changes?
 	return &Connection{defaultClient, aws.NewSignature(secret, access,
 		r, "glacier")}
-}
-
-func GetTreeHash(r io.Reader) (string, string, error) {
-	treeHash, hash, err := createTreeHash(r)
-	if err != nil {
-		return "", "", err
-	}
-	return string(toHex(treeHash.hash[:])), string(toHex(hash)), nil
 }
 
 // TODO method to log things such as x-amzn-RequestId

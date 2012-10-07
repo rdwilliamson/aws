@@ -16,34 +16,23 @@ func (c *Connection) UploadArchive(description string, archive io.ReadSeeker, va
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
+	th := NewTreeHash()
+	request.ContentLength, err = io.Copy(th, archive)
+	if err != nil {
+		return "", err
+	}
+	th.Close()
+
+	_, err = archive.Seek(0, 0)
+	if err != nil {
+		return "", err
+	}
+
 	request.Header.Add("x-amz-archive-description", description)
+	request.Header.Add("x-amz-sha256-tree-hash", th.TreeHash())
+	request.Header.Add("x-amz-content-sha256", th.Hash())
 
-	ht, hash, err := createTreeHash(archive)
-	if err != nil {
-		return "", err
-	}
-	_, err = archive.Seek(0, 0)
-	if err != nil {
-		return "", err
-	}
-	request.Header.Add("x-amz-sha256-tree-hash", string(toHex(ht.hash[:])))
-
-	request.Header.Add("x-amz-content-sha256", string(toHex(hash)))
-	_, err = archive.Seek(0, 0)
-	if err != nil {
-		return "", err
-	}
-
-	c.Signature.Sign(request, nil, hash)
-
-	request.ContentLength, err = archive.Seek(0, 2)
-	if err != nil {
-		return "", err
-	}
-	_, err = archive.Seek(0, 0)
-	if err != nil {
-		return "", err
-	}
+	c.Signature.Sign(request, nil, th.HashBytes())
 
 	response, err := c.Client.Do(request)
 	if err != nil {
