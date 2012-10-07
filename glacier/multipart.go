@@ -44,7 +44,7 @@ func (c *Connection) InitiateMultipart(vault string, size uint,
 	request.Header.Add("x-amz-part-size", fmt.Sprint(size))
 
 	if description != "" {
-		request.Header.Add("x-amz-archive-description", fmt.Sprint(size))
+		request.Header.Add("x-amz-archive-description", description)
 	}
 
 	err = c.Signature.Sign(request, nil, nil)
