@@ -51,6 +51,11 @@ type Job struct {
 	VaultARN             string
 }
 
+type jobList struct {
+	Marker  *string
+	JobList []job
+}
+
 type job struct {
 	Action               string
 	ArchiveId            *string
@@ -381,10 +386,7 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 		return nil, "", &e
 	}
 
-	var jl struct {
-		Marker  *string
-		JobList []job
-	}
+	var jl jobList
 	err = json.Unmarshal(body, &jl)
 	if err != nil {
 		return nil, "", err
