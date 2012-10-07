@@ -106,7 +106,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 	return response.Header.Get("x-amz-job-id"), nil
 }
 
-func (c *Connection) InitiateInventoryJob(vault, description, topic string) (string, error) {
+func (c *Connection) InitiateInventoryJob(vault, topic, description string) (string, error) {
 	j := jobRequest{Type: "inventory-retrieval", Description: description, SNSTopic: topic}
 	rawBody, err := json.Marshal(j)
 	if err != nil {
@@ -324,7 +324,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (Inventory, error) {
 	return result, nil
 }
 
-func (c *Connection) ListJobs(vault, completed, limit, marker, statusCode string) ([]Job, string, error) {
+func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit int) ([]Job, string, error) {
 	get, err := url.Parse("https://" + c.Signature.Region.Glacier + "/-/vaults/" + vault + "/jobs")
 	if err != nil {
 		return nil, "", err
@@ -335,9 +335,9 @@ func (c *Connection) ListJobs(vault, completed, limit, marker, statusCode string
 		// TODO validate, true or false
 		query.Add("completed", completed)
 	}
-	if limit != "" {
+	if limit > 0 {
 		// TODO validate, 1 - 1000
-		query.Add("limit", limit)
+		query.Add("limit", fmt.Sprint(limit))
 	}
 	if marker != "" {
 		// TODO validate

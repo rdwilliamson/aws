@@ -161,15 +161,15 @@ func (c *Connection) DescribeVault(name string) (Vault, error) {
 	return result, nil
 }
 
-func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, error) {
+func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, error) {
 	if limit < 0 || limit > 1000 {
 		// TODO return predeclared variable
-		return "", nil, errors.New("limit must be 1 through 1000")
+		return nil, "", errors.New("limit must be 1 through 1000")
 	}
 
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults", nil)
 	if err != nil {
-		return "", nil, err
+		return nil, "", err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
@@ -184,25 +184,25 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 
 	response, err := c.Client.Do(request)
 	if err != nil {
-		return "", nil, err
+		return nil, "", err
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return "", nil, err
+		return nil, "", err
 	}
 	err = response.Body.Close()
 	if err != nil {
-		return "", nil, err
+		return nil, "", err
 	}
 
 	if response.StatusCode != 200 {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
-			return "", nil, err
+			return nil, "", err
 		}
-		return "", nil, &e
+		return nil, "", &e
 	}
 
 	var vaults struct {
@@ -211,36 +211,36 @@ func (c *Connection) ListVaults(limit int, marker string) (string, []Vault, erro
 	}
 	err = json.Unmarshal(body, &vaults)
 	if err != nil {
-		return "", nil, err
+		return nil, "", err
 	}
 
-	responseVaults := make([]Vault, len(vaults.VaultList))
-	for i := range responseVaults {
-		responseVaults[i].CreationDate, err = time.Parse(time.RFC3339, vaults.VaultList[i].CreationDate)
+	result := make([]Vault, len(vaults.VaultList))
+	for i, v := range vaults.VaultList {
+		result[i].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
 		if err != nil {
-			return "", nil, err
+			return nil, "", err
 		}
-		if vaults.VaultList[i].LastInventoryDate != nil {
-			responseVaults[i].LastInventoryDate, err = time.Parse(time.RFC3339, *vaults.VaultList[i].LastInventoryDate)
+		if v.LastInventoryDate != nil {
+			result[i].LastInventoryDate, err = time.Parse(time.RFC3339, *v.LastInventoryDate)
 			if err != nil {
-				return "", nil, err
+				return nil, "", err
 			}
 		}
-		responseVaults[i].NumberOfArchives = vaults.VaultList[i].NumberOfArchives
-		responseVaults[i].SizeInBytes = vaults.VaultList[i].SizeInBytes
-		responseVaults[i].VaultARN = vaults.VaultList[i].VaultARN
-		responseVaults[i].VaultName = vaults.VaultList[i].VaultName
+		result[i].NumberOfArchives = v.NumberOfArchives
+		result[i].SizeInBytes = v.SizeInBytes
+		result[i].VaultARN = v.VaultARN
+		result[i].VaultName = v.VaultName
 	}
 
-	var responseMarker string
+	var resultMarker string
 	if vaults.Marker != nil {
-		responseMarker = *vaults.Marker
+		resultMarker = *vaults.Marker
 	}
 
-	return responseMarker, responseVaults, nil
+	return result, resultMarker, nil
 }
 
-func (c *Connection) SetVaultNotifications(name string, n Notifications) error {
+func (c *Connection) SetVaultNotifications(name string, n *Notifications) error {
 	body, err := json.Marshal(n)
 	if err != nil {
 		return err
@@ -283,13 +283,13 @@ func (c *Connection) SetVaultNotifications(name string, n Notifications) error {
 	return nil
 }
 
-func (c *Connection) GetVaultNotifications(name string) (Notifications, error) {
+func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) {
 	var results Notifications
 
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name+
 		"/notification-configuration", nil)
 	if err != nil {
-		return results, err
+		return nil, err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
@@ -297,33 +297,33 @@ func (c *Connection) GetVaultNotifications(name string) (Notifications, error) {
 
 	response, err := c.Client.Do(request)
 	if err != nil {
-		return results, err
+		return nil, err
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		return results, err
+		return nil, err
 	}
 	err = response.Body.Close()
 	if err != nil {
-		return results, err
+		return nil, err
 	}
 
 	if response.StatusCode != 200 {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
-			return results, err
+			return nil, err
 		}
-		return results, &e
+		return nil, &e
 	}
 
 	err = json.Unmarshal(body, &results)
 	if err != nil {
-		return results, err
+		return nil, err
 	}
 
-	return results, nil
+	return &results, nil
 }
 
 func (c *Connection) DeleteVaultNotifications(name string) error {

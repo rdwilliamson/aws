@@ -8,7 +8,7 @@ import (
 	"net/http"
 )
 
-func (c *Connection) UploadArchive(description string, archive io.ReadSeeker, vault string) (string, error) {
+func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, description string) (string, error) {
 	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives",
 		archive)
 	if err != nil {
