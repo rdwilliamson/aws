@@ -374,7 +374,7 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 	if err != nil {
 		return nil, "", err
 	}
-	err1 = response.Body.Close()
+	err1 := response.Body.Close()
 
 	if response.StatusCode != 200 {
 		var e aws.Error
