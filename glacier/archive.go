@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"path"
 )
 
 func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, description string) (string, error) {
@@ -56,7 +57,8 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 		return "", &e
 	}
 
-	return response.Header.Get("Location"), response.Body.Close()
+	_, location := path.Split(response.Header.Get("Location"))
+	return location, response.Body.Close()
 }
 
 func (c *Connection) DeleteArchive(vault, archive string) error {
