@@ -108,7 +108,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 		return "", &e
 	}
 
-	return response.Header.Get("x-amz-job-id"), nil
+	return response.Header.Get("x-amz-job-id"), response.Body.Close()
 }
 
 func (c *Connection) InitiateInventoryJob(vault, topic, description string) (string, error) {
@@ -150,7 +150,7 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 		return "", &e
 	}
 
-	return response.Header.Get("x-amz-job-id"), nil
+	return response.Header.Get("x-amz-job-id"), response.Body.Close()
 }
 
 func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
@@ -171,7 +171,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	response.Body.Close()
+	err1 := response.Body.Close()
 
 	if response.StatusCode != 200 {
 		var e aws.Error
@@ -198,8 +198,14 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	result.Completed = j.Completed
 	if j.CompletionDate != nil {
 		result.CompletionDate, err = time.Parse(time.RFC3339, *j.CompletionDate)
+		if err != nil && err1 == nil {
+			err1 = err
+		}
 	}
 	result.CreationDate, err = time.Parse(time.RFC3339, j.CreationDate)
+	if err != nil && err1 == nil {
+		err1 = err
+	}
 	if j.InventorySizeInBytes != nil {
 		result.InventorySizeInBytes = *j.InventorySizeInBytes
 	}
@@ -219,7 +225,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	}
 	result.VaultARN = j.VaultARN
 
-	return &result, nil
+	return &result, err1
 }
 
 func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.ReadCloser, error) {
@@ -278,10 +284,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = response.Body.Close()
-	if err != nil {
-		return nil, err
-	}
+	err1 := response.Body.Close()
 
 	if response.StatusCode != 200 {
 		var e aws.Error
@@ -315,7 +318,6 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 		return nil, err
 	}
 	result.ArchiveList = make([]Archive, len(i.ArchiveList))
-	var err1 error
 	for j, v := range i.ArchiveList {
 		result.ArchiveList[j].ArchiveId = v.ArchiveId
 		result.ArchiveList[j].ArchiveDescription = v.ArchiveDescription
@@ -327,7 +329,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 		result.ArchiveList[j].SHA256TreeHash = v.SHA256TreeHash
 	}
 
-	return &result, err
+	return &result, err1
 }
 
 func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit int) ([]Job, string, error) {
@@ -372,10 +374,7 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 	if err != nil {
 		return nil, "", err
 	}
-	err = response.Body.Close()
-	if err != nil {
-		return nil, "", err
-	}
+	err1 = response.Body.Close()
 
 	if response.StatusCode != 200 {
 		var e aws.Error
@@ -392,7 +391,6 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 		return nil, "", err
 	}
 
-	var err1 error
 	jobs := make([]Job, len(jl.JobList))
 	for i, v := range jl.JobList {
 		jobs[i].Action = v.Action

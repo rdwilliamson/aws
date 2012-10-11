@@ -54,10 +54,7 @@ func (c *Connection) CreateVault(name string) error {
 		if err != nil {
 			return err
 		}
-		err = response.Body.Close()
-		if err != nil {
-			return err
-		}
+		response.Body.Close()
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -66,7 +63,7 @@ func (c *Connection) CreateVault(name string) error {
 		return &e
 	}
 
-	return nil
+	return response.Body.Close()
 }
 
 func (c *Connection) DeleteVault(name string) error {
@@ -88,10 +85,7 @@ func (c *Connection) DeleteVault(name string) error {
 		if err != nil {
 			return err
 		}
-		err = response.Body.Close()
-		if err != nil {
-			return err
-		}
+		response.Body.Close()
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -100,7 +94,7 @@ func (c *Connection) DeleteVault(name string) error {
 		return &e
 	}
 
-	return nil
+	return response.Body.Close()
 }
 
 func (c *Connection) DescribeVault(name string) (*Vault, error) {
@@ -121,10 +115,7 @@ func (c *Connection) DescribeVault(name string) (*Vault, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = response.Body.Close()
-	if err != nil {
-		return nil, err
-	}
+	err1 := response.Body.Close()
 
 	if response.StatusCode != 200 {
 		var e aws.Error
@@ -142,7 +133,6 @@ func (c *Connection) DescribeVault(name string) (*Vault, error) {
 	}
 
 	var result Vault
-	var err1 error
 	result.CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
 	if err != nil {
 		err1 = err
@@ -191,10 +181,7 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 	if err != nil {
 		return nil, "", err
 	}
-	err = response.Body.Close()
-	if err != nil {
-		return nil, "", err
-	}
+	err1 := response.Body.Close()
 
 	if response.StatusCode != 200 {
 		var e aws.Error
@@ -215,7 +202,6 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 	}
 
 	result := make([]Vault, len(vaults.VaultList))
-	var err1 error
 	for i, v := range vaults.VaultList {
 		result[i].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
 		if err != nil && err1 == nil {
@@ -281,7 +267,7 @@ func (c *Connection) SetVaultNotifications(name string, n *Notifications) error 
 		return &e
 	}
 
-	return nil
+	return response.Body.Close()
 }
 
 func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) {
@@ -305,10 +291,7 @@ func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) 
 	if err != nil {
 		return nil, err
 	}
-	err = response.Body.Close()
-	if err != nil {
-		return nil, err
-	}
+	err1 := response.Body.Close()
 
 	if response.StatusCode != 200 {
 		var e aws.Error
@@ -324,7 +307,7 @@ func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) 
 		return nil, err
 	}
 
-	return &results, nil
+	return &results, err1
 }
 
 func (c *Connection) DeleteVaultNotifications(name string) error {
@@ -359,5 +342,5 @@ func (c *Connection) DeleteVaultNotifications(name string) error {
 		return &e
 	}
 
-	return nil
+	return response.Body.Close()
 }

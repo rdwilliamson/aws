@@ -73,7 +73,7 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 		return "", &e
 	}
 
-	return response.Header.Get("x-amz-multipart-upload-id"), nil
+	return response.Header.Get("x-amz-multipart-upload-id"), response.Body.Close()
 }
 
 func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body io.ReadSeeker) error {
@@ -115,10 +115,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body i
 		if err != nil {
 			return err
 		}
-		err = response.Body.Close()
-		if err != nil {
-			return err
-		}
+		response.Body.Close()
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -127,7 +124,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body i
 		return &e
 	}
 
-	return nil
+	return response.Body.Close()
 }
 
 func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size uint) (string, error) {
@@ -162,7 +159,7 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 		return "", &e
 	}
 
-	return response.Header.Get("x-amz-archive-id"), nil
+	return response.Header.Get("x-amz-archive-id"), response.Body.Close()
 }
 
 func (c *Connection) AbortMultipart(vault, uploadId string) error {
@@ -194,7 +191,7 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 		return &e
 	}
 
-	return nil
+	return response.Body.Close()
 }
 
 func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit int) (*MultipartParts, error) {
@@ -221,7 +218,7 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 	if err != nil {
 		return nil, err
 	}
-	response.Body.Close()
+	err1 := response.Body.Close()
 
 	if response.StatusCode != 200 {
 		var e aws.Error
@@ -251,6 +248,9 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 	var result MultipartParts
 	result.ArchiveDescription = list.ArchiveDescription
 	result.CreationDate, err = time.Parse(time.RFC3339, list.CreationDate)
+	if err != nil && err1 == nil {
+		err1 = err
+	}
 	if list.Marker != nil {
 		result.Marker = *list.Marker
 	}
@@ -259,7 +259,7 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 	result.Parts = list.Parts
 	result.VaultARN = list.VaultARN
 
-	return &result, nil
+	return &result, err1
 }
 
 func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Multipart, string, error) {
@@ -334,5 +334,5 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 		m = *list.Marker
 	}
 
-	return parts, m, nil
+	return parts, m, err1
 }
