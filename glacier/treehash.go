@@ -6,11 +6,6 @@ import (
 	"io"
 )
 
-const (
-	KiB = 1024
-	MiB = 1024 * KiB
-)
-
 type treeHashNode struct {
 	hash  [sha256.Size]byte
 	left  *treeHashNode
