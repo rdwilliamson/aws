@@ -228,11 +228,11 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	return &result, err1
 }
 
-func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.ReadCloser, error) {
+func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.ReadCloser, string, error) {
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
 		"/output", nil)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 	if end > 0 {
@@ -243,26 +243,26 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.Rea
 
 	response, err := c.Client.Do(request)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	if response.StatusCode != 200 {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		response.Body.Close()
 
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
-		return nil, &e
+		return nil, "", &e
 	}
 
 	// TODO return content range and x-amz-sha256-tree-hash
-	return response.Body, nil
+	return response.Body, response.Header.Get("-amz-sha256-tree-hash"), nil
 }
 
 func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
