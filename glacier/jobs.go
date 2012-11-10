@@ -228,7 +228,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	return &result, err1
 }
 
-func (c *Connection) GetRetrievalJob(vault, job string, start, end uint) (io.ReadCloser, string, error) {
+func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.ReadCloser, string, error) {
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
 		"/output", nil)
 	if err != nil {
