@@ -236,7 +236,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.R
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 	if end > 0 {
-		request.Header.Add("Range", fmt.Sprintf("bytes %d-%d/*", start, end))
+		request.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", start, end))
 	}
 
 	c.Signature.Sign(request, nil, nil)
@@ -246,7 +246,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.R
 		return nil, "", err
 	}
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != 200 && response.StatusCode != 206 {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return nil, "", err
@@ -261,8 +261,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.R
 		return nil, "", &e
 	}
 
-	// TODO return content range and x-amz-sha256-tree-hash
-	return response.Body, response.Header.Get("-amz-sha256-tree-hash"), nil
+	return response.Body, response.Header.Get("x-amz-sha256-tree-hash"), nil
 }
 
 func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
