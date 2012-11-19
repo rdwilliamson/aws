@@ -86,6 +86,7 @@ type Signature struct {
 	Region     *Region
 	Service    string
 	SigningKey [sha256.Size]byte
+	NewKeys    func() (string, string) // function to get keys if date changes
 }
 
 // NewSignature creates a new signature from the secret key, access key,
@@ -129,8 +130,13 @@ func (s *Signature) generateSigningKey(secret string) {
 func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	// TODO check if header already has hash instead of parameter
 	// TODO check all error cases first
-	// TODO compare request date to signature date? or have signature update
-	// when it expires? or have whatever is using signature check it?
+
+	if today := time.Now().UTC().Format(ISO8601BasicFormatShort); s.NewKeys != nil && s.Date != today {
+		access, secret := s.NewKeys()
+		s.AccessID = access
+		s.Date = today
+		s.generateSigningKey(secret)
+	}
 
 	credential := s.Date + "/" + s.Region.Name + "/" + s.Service + "/aws4_request"
 
