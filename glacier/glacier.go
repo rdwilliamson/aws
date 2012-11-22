@@ -15,6 +15,8 @@ type Connection struct {
 	Signature *aws.Signature
 }
 
+// Creates a connection object using the default http client and a signature
+// for glacier from the secret key, access key, and region.
 func NewConnection(secret, access string, r *aws.Region) *Connection {
 	// TODO a go routine to create a new signature when the date changes?
 	return &Connection{defaultClient, aws.NewSignature(secret, access,
