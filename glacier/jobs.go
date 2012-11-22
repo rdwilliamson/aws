@@ -155,6 +155,12 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 	return response.Header.Get("x-amz-job-id"), nil
 }
 
+// Initiate an vault inventory job with the vault name. You can also provide
+// an optional job description when you initiate these jobs. If you specify a
+// topic, Amazon Glacier sends notifications to both the supplied topic and
+// the vault's ArchiveRetrievalCompleted notification topic.
+//
+// Returns the job ID or the first error encountered.
 func (c *Connection) InitiateInventoryJob(vault, topic, description string) (string, error) {
 	j := jobRequest{Type: "inventory-retrieval", Description: description, SNSTopic: topic}
 	rawBody, err := json.Marshal(j)
@@ -182,10 +188,7 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 		if err != nil {
 			return "", err
 		}
-		err = response.Body.Close()
-		if err != nil {
-			return "", err
-		}
+		response.Body.Close()
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -194,9 +197,15 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 		return "", &e
 	}
 
-	return response.Header.Get("x-amz-job-id"), response.Body.Close()
+	response.Body.Close()
+
+	return response.Header.Get("x-amz-job-id"), nil
 }
 
+// This operation returns information about a job you previously initiated,
+// see Job type.
+//
+// Returns the job and the first error, if any, encountered.
 func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+jobId, nil)
 	if err != nil {
@@ -272,6 +281,26 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	return &result, err1
 }
 
+// You can download all the job output or download a portion of the output by
+// specifying a byte range. In the case of an archive retrieval job, depending
+// on the byte range you specify, Amazon Glacier returns the checksum for the
+// portion of the data.You can compute the checksum on the client and verify
+// that the values match to ensure the portion you downloaded is the correct
+// data.
+//
+// Returns a ReadCloser containing the requested data, a tree hash or the
+// first error encountered.
+// It is the caller's reposonsibility to call Close on the returned value. The
+// tree hash is only returned under the following conditions:
+// * You get the entire range of the archive.
+// * You request a byte range of the archive that starts and ends on a multiple
+// of 1 MB. For example, if you have a 3.1 MB archive and you specify a range
+// to return that starts at 1 MB and ends at 2 MB, then the x-amz-sha256-tree-
+// hash is returned as a response header.
+// * You request a byte range that starts on a multiple of 1 MB and goes to the
+// end of the archive. For example, if you have a 3.1 MB archive and you
+// specify a range that starts at 2 MB and ends at 3.1 MB (the end of the
+// archive), then the x-amz-sha256-tree-hash is returned as a response header.
 func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.ReadCloser, string, error) {
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
 		"/output", nil)
