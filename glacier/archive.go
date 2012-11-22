@@ -9,6 +9,10 @@ import (
 	"path"
 )
 
+// Upload archive to vault with optional description. The entire archive will
+// be read in order to create its tree hash before uploading.
+//
+// Returns the archive ID or the first error encountered.
 func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, description string) (string, error) {
 	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives",
 		archive)
@@ -45,10 +49,7 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 		if err != nil {
 			return "", err
 		}
-		err = response.Body.Close()
-		if err != nil {
-			return "", err
-		}
+		response.Body.Close()
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -57,10 +58,15 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 		return "", &e
 	}
 
+	response.Body.Close()
+
 	_, location := path.Split(response.Header.Get("Location"))
-	return location, response.Body.Close()
+	return location, nil
 }
 
+// Deletes archive from vault.
+//
+// Returns the first error encountered.
 func (c *Connection) DeleteArchive(vault, archive string) error {
 	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives/"+
 		archive, nil)
@@ -81,10 +87,7 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 		if err != nil {
 			return err
 		}
-		err = response.Body.Close()
-		if err != nil {
-			return err
-		}
+		response.Body.Close()
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -93,5 +96,7 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 		return &e
 	}
 
-	return response.Body.Close()
+	response.Body.Close()
+
+	return nil
 }
