@@ -20,6 +20,14 @@ type jobRequest struct {
 	SNSTopic    string `json:",omitempty"`
 }
 
+// An archive is any object, such as a photo, video, or document, that you
+// store in a vault. It is a base unit of storage in Amazon Glacier. Each
+// archive has a unique ID and an optional description. When you upload an
+// archive, Amazon Glacier returns a response that includes an archive ID.
+// This archive ID is unique in the region in which the archive is stored. The
+// following is an example archive ID. Archive IDs are 138 bytes long. When
+// you upload an archive, you can provide an optional description. You can
+// retrieve an archive using its ID but not its description.
 type Archive struct {
 	ArchiveId          string
 	ArchiveDescription string
@@ -28,12 +36,42 @@ type Archive struct {
 	SHA256TreeHash     string
 }
 
+// Amazon Glacier updates a vault inventory approximately once a day, starting
+// on the day you first upload an archive to the vault. When you initiate a
+// job for a vault inventory, Amazon Glacier returns the last inventory it
+// generated, which is a point-in-time snapshot and not realtime data. Note
+// that after Amazon Glacier creates the first inventory for the vault, it
+// typically takes half a day and up to a day before that inventory is
+// available for retrieval.You might not find it useful to retrieve a vault
+// inventory for each archive upload. However, suppose you maintain a database
+// on the client-side associating metadata about the archives you upload to
+// Amazon Glacier. Then, you might find the vault inventory useful to
+// reconcile information, as needed, in your database with the actual vault
+// inventory.
 type Inventory struct {
 	VaultARN      string
 	InventoryDate time.Time
 	ArchiveList   []Archive
 }
 
+// Retrieving an archive or a vault inventory are asynchronous operations that
+// require you to initiate a job. It is a two-step process:
+// 1. Initiate a retrieval job.
+// 2. After the job completes, download the bytes.
+// The retrieval request is executed asynchronously. When you initiate a
+// retrieval job, Amazon Glacier creates a job and returns a job ID in the
+// response. When Amazon Glacier completes the job, you can get the job output
+// (archive or inventory data).
+// The job must complete before you can get its output. To determine when a
+// job is complete, you have the following options:
+// * Use Amazon SNS Notification— You can specify an Amazon Simple Notification
+// Service (Amazon SNS) topic to which Amazon Glacier can post a notification
+// after the job is completed. You can specify an SNS topic per job request.
+// The notification is sent only after Amazon Glacier completes the job. In
+// addition to specifying an SNS topic per job request, you can configure
+// vault notifications for a vault so that job notifications are sent for all
+// retrievals.
+// * Get job details- Use DescribeJob.
 type Job struct {
 	Action               string
 	ArchiveId            string
@@ -73,6 +111,13 @@ type job struct {
 	VaultARN             string
 }
 
+// Initiate an archive retrieval job with both the vault name where the
+// archive resides and the archive ID you wish to download. You can also
+// provide an optional job description when you initiate these jobs. If you
+// specify a topic, Amazon Glacier sends notifications to both the supplied
+// topic and the vault's ArchiveRetrievalCompleted notification topic.
+//
+// Returns the job ID or the first error encountered.
 func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description string) (string, error) {
 	j := jobRequest{Type: "archive-retrieval", ArchiveId: archive, Description: description, SNSTopic: topic}
 	rawBody, _ := json.Marshal(j)
@@ -96,10 +141,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 		if err != nil {
 			return "", err
 		}
-		err = response.Body.Close()
-		if err != nil {
-			return "", err
-		}
+		response.Body.Close()
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -108,9 +150,17 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 		return "", &e
 	}
 
-	return response.Header.Get("x-amz-job-id"), response.Body.Close()
+	response.Body.Close()
+
+	return response.Header.Get("x-amz-job-id"), nil
 }
 
+// Initiate an vault inventory job with the vault name. You can also provide
+// an optional job description when you initiate these jobs. If you specify a
+// topic, Amazon Glacier sends notifications to both the supplied topic and
+// the vault's ArchiveRetrievalCompleted notification topic.
+//
+// Returns the job ID or the first error encountered.
 func (c *Connection) InitiateInventoryJob(vault, topic, description string) (string, error) {
 	j := jobRequest{Type: "inventory-retrieval", Description: description, SNSTopic: topic}
 	rawBody, err := json.Marshal(j)
@@ -138,10 +188,7 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 		if err != nil {
 			return "", err
 		}
-		err = response.Body.Close()
-		if err != nil {
-			return "", err
-		}
+		response.Body.Close()
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -150,9 +197,15 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 		return "", &e
 	}
 
-	return response.Header.Get("x-amz-job-id"), response.Body.Close()
+	response.Body.Close()
+
+	return response.Header.Get("x-amz-job-id"), nil
 }
 
+// This operation returns information about a job you previously initiated,
+// see Job type.
+//
+// Returns the job and the first error, if any, encountered.
 func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+jobId, nil)
 	if err != nil {
@@ -228,6 +281,26 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	return &result, err1
 }
 
+// You can download all the job output or download a portion of the output by
+// specifying a byte range. In the case of an archive retrieval job, depending
+// on the byte range you specify, Amazon Glacier returns the checksum for the
+// portion of the data.You can compute the checksum on the client and verify
+// that the values match to ensure the portion you downloaded is the correct
+// data.
+//
+// Returns a ReadCloser containing the requested data, a tree hash or the
+// first error encountered.
+// It is the caller's reposonsibility to call Close on the returned value. The
+// tree hash is only returned under the following conditions:
+// * You get the entire range of the archive.
+// * You request a byte range of the archive that starts and ends on a multiple
+// of 1 MB. For example, if you have a 3.1 MB archive and you specify a range
+// to return that starts at 1 MB and ends at 2 MB, then the x-amz-sha256-tree-
+// hash is returned as a response header.
+// * You request a byte range that starts on a multiple of 1 MB and goes to the
+// end of the archive. For example, if you have a 3.1 MB archive and you
+// specify a range that starts at 2 MB and ends at 3.1 MB (the end of the
+// archive), then the x-amz-sha256-tree-hash is returned as a response header.
 func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.ReadCloser, string, error) {
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
 		"/output", nil)
