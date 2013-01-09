@@ -337,6 +337,17 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.R
 	return response.Body, response.Header.Get("x-amz-sha256-tree-hash"), nil
 }
 
+// Amazon Glacier updates a vault inventory approximately once a day, starting
+// on the day you first upload an archive to the vault. When you initiate a job
+// for a vault inventory, Amazon Glacier returns the last inventory it
+// generated, which is a point-in-time snapshot and not realtime data. Note that
+// after Amazon Glacier creates the first inventory for the vault, it typically
+// takes half a day and up to a day before that inventory is available for
+// retrieval.You might not find it useful to retrieve a vault inventory for each
+// archive upload. However, suppose you maintain a database on the client-side
+// associating metadata about the archives you upload to Amazon Glacier. Then,
+// you might find the vault inventory useful to reconcile information, as
+// needed, in your database with the actual vault inventory.
 func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
 		"/output", nil)
