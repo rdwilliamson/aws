@@ -12,6 +12,13 @@ type treeHashNode struct {
 	right *treeHashNode
 }
 
+// TreeHash is used to calculate the tree hash and regular sha256 hash of the
+// data written to it. These values are needed when uploading an archive or
+// verifying an aligned download. First each 1 MiB chunk of data is hashed.
+// Second each consecutive child node's hashes are concatenated then hashed (if
+// there is a single node left it is promoted to the next level). The second
+// step is repeated until there is only a single node, this is the tree hash.
+// See docs.aws.amazon.com/amazonglacier/latest/dev/checksum-calculations.html
 type TreeHash struct {
 	whole   hash.Hash
 	part    hash.Hash
@@ -20,6 +27,7 @@ type TreeHash struct {
 	written int
 }
 
+// Creates a new tree hasher.
 func NewTreeHash() *TreeHash {
 	var result TreeHash
 	result.whole = sha256.New()
@@ -29,6 +37,7 @@ func NewTreeHash() *TreeHash {
 	return &result
 }
 
+// Hashes the written data storing every 1 MiB of data's hash.
 func (th *TreeHash) Write(p []byte) (n int, err error) {
 	// check if we can't fill up remaining chunk
 	if len(p) < 1024*1024-th.written {
@@ -63,6 +72,7 @@ func (th *TreeHash) Write(p []byte) (n int, err error) {
 	return
 }
 
+// Hashes the remaing chunk of data and then calculated the tree hash.
 func (th *TreeHash) Close() error {
 	// create last node
 	if th.written > 0 {
@@ -79,7 +89,7 @@ func (th *TreeHash) Close() error {
 	for added > 1 || remainder != nil {
 		children := added
 		added = 0
-		// pair up 
+		// pair up
 		for children > 1 {
 			th.nodes = append(th.nodes, treeHashNode{})
 			th.nodes[outIndex].left = &th.nodes[childIndex]
@@ -121,18 +131,22 @@ func (th *TreeHash) Close() error {
 	return nil
 }
 
+// Returns the tree hash of everything written.
 func (th *TreeHash) TreeHash() string {
 	return string(toHex(th.nodes[len(th.nodes)-1].hash[:]))
 }
 
+// Returns the hex string hash of everything written.
 func (th *TreeHash) Hash() string {
 	return string(toHex(th.whole.Sum(nil)))
 }
 
+// Returns the hash of everything written.
 func (th *TreeHash) HashBytes() []byte {
 	return th.whole.Sum(nil)
 }
 
+// Clears the tree hash's state allowing it to be reused.
 func (th *TreeHash) Reset() {
 	th.whole.Reset()
 	th.part.Reset()
