@@ -10,7 +10,8 @@ import (
 	"time"
 )
 
-// A vault is a container for storing archives.
+// A vault is a container for storing archives. You can store an unlimited
+// number of archives in a vault.
 type Vault struct {
 	CreationDate      time.Time
 	LastInventoryDate time.Time

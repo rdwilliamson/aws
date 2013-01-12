@@ -37,7 +37,7 @@ func NewTreeHash() *TreeHash {
 	return &result
 }
 
-// Hashes the written data storing every 1 MiB of data's hash.
+// Hashes the written data, storing every 1 MiB of data's hash.
 func (th *TreeHash) Write(p []byte) (n int, err error) {
 	// check if we can't fill up remaining chunk
 	if len(p) < 1024*1024-th.written {
@@ -72,7 +72,7 @@ func (th *TreeHash) Write(p []byte) (n int, err error) {
 	return
 }
 
-// Hashes the remaing chunk of data and then calculated the tree hash.
+// Hashes the remaing chunk of data and then calculates the tree hash.
 func (th *TreeHash) Close() error {
 	// create last node
 	if th.written > 0 {
