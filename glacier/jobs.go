@@ -415,6 +415,37 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 	return &result, err1
 }
 
+// This operation lists jobs for a vault including jobs that are in-progress and
+// jobs that have recently finished.
+//
+// To retrieve an archive or retrieve a vault inventory from Amazon Glacier, you
+// first initiate a job, and after the job completes, you download the data. For
+// an archive retrieval, the output is the archive data, and for an inventory
+// retrieval, it is the inventory list. The List Job operation returns a list of
+// these jobs sorted by job initiation time. The List Jobs operation supports
+// pagination. By default, this operation returns up to 1,000 jobs in the
+// response.You should always check the response marker field for a marker at
+// which to continue the list; if there are no more items the marker field is
+// null. To return a list of jobs that begins at a specific job, set the marker
+// request parameter to the value you obtained from a previous List Jobs
+// request.You can also limit the number of jobs returned in the response by
+// specifying the limit parameter in the request.
+//
+// Additionally, you can filter the jobs list returned by specifying an optional
+// statuscode (InProgress, Succeeded, or Failed) and completed (true, false)
+// parameter. The statuscode allows you to specify that only jobs that match a
+// specified status are returned.The completed parameter allows you to specify
+// that only jobs in specific completion state are returned.
+//
+// Amazon Glacier retains recently completed jobs for a period before deleting
+// them; however, it eventually removes completed jobs. The output of completed
+// jobs can be retrieved. Retaining completed jobs for a period of time after
+// they have completed enables you to get a job output in the event you miss the
+// job completion notification or your first attempt to download it fails. For
+// example, suppose you start an archive retrieval job to download an archive.
+// After the job completes, you start to download the archive but encounter a
+// network error. In this scenario, you can retry and download the archive while
+// the job exists.
 func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit int) ([]Job, string, error) {
 	get, err := url.Parse("https://" + c.Signature.Region.Glacier + "/-/vaults/" + vault + "/jobs")
 	if err != nil {
