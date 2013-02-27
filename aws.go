@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"net/url"
@@ -62,13 +63,12 @@ func encode(s string) string {
 	return string(e[:ei])
 }
 
+// Return a new copy of the input byte array that is 
+// hex encoded.
+//
 func toHex(x []byte) []byte {
-	hex := "0123456789abcdef"
 	z := make([]byte, 2*len(x))
-	for i, v := range x {
-		z[2*i] = hex[(v&0xf0)>>4]
-		z[2*i+1] = hex[v&0x0f]
-	}
+	hex.Encode(z, x)
 	return z
 }
 
