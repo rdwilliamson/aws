@@ -16,15 +16,102 @@ import (
 	"time"
 )
 
-func TestSignature(t *testing.T) {
-	type testData struct {
-		base string
-		req  []byte
-		sreq []byte
+// Struct for holding a single request and its "gold standard"
+// signature so that we may verify we can produce the same.
+//
+type awsTestCase struct {
+	base    string
+	req     []byte
+	sreq    []byte
+	request *http.Request
+	body    io.ReadSeeker
+}
 
-		request *http.Request
-		body    io.ReadSeeker
+// Get a list of the files in the AWS test suite.
+//
+func getAWSSuiteFiles(dir string) (files []string, err error) {
+
+	d, err := os.Open(dir)
+	if err != nil {
+		return
 	}
+	f, err := d.Readdirnames(0)
+	if err != nil {
+		return
+	}
+
+	sort.Strings(f)
+
+	files = make([]string, 0)
+	for i := 0; i < len(f)-1; {
+		if filepath.Ext(f[i]) == ".req" &&
+			filepath.Ext(f[i+1]) == ".sreq" {
+			files = append(files, f[i][:len(f[i])-4])
+			i += 2
+		} else {
+			i++
+		}
+	}
+	return
+
+}
+
+// Build a slice of awsTestCase structs based on the "gold standards"
+// distributed by Amazon and located in the aws4_testsuite directory.
+//
+func buildAWSSuite() (tests []*awsTestCase, err error) {
+
+	// Get the list of files in the aws4_testsuite directory
+	dir := "aws4_testsuite"
+	files, err := getAWSSuiteFiles(dir)
+	if err != nil {
+		return
+	}
+
+	tests = make([]*awsTestCase, 0)
+	for _, f := range files {
+		d := new(awsTestCase)
+		d.base = f
+
+		// Read in the raw request and convert it to go's internal format
+		d.req, err = ioutil.ReadFile(dir + "/" + f + ".req")
+		if err != nil {
+			return
+		}
+		// Go doesn't like post requests with spaces in them
+		if d.base == "post-vanilla-query-nonunreserved" ||
+			d.base == "post-vanilla-query-space" ||
+			d.base == "get-slashes" {
+			// skip tests with spacing in URLs or invalid escapes or
+			// trailing slashes
+			continue
+		} else {
+
+			// Go doesn't like lowercase http
+			fixed := bytes.Replace(d.req, []byte("http"), []byte("HTTP"), 1)
+			reader := bufio.NewReader(bytes.NewBuffer(fixed))
+			d.request, err = http.ReadRequest(reader)
+			if err != nil {
+				return
+			}
+			delete(d.request.Header, "User-Agent")
+			if i := bytes.Index(d.req, []byte("\n\n")); i != -1 {
+				d.body = bytes.NewReader(d.req[i+2:])
+				d.request.Body = ioutil.NopCloser(d.body)
+			}
+		}
+
+		d.sreq, err = ioutil.ReadFile(dir + "/" + f + ".sreq")
+		if err != nil {
+			return
+		}
+
+		tests = append(tests, d)
+	}
+	return
+}
+
+func TestSignature(t *testing.T) {
 
 	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
 	secret := "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
@@ -38,74 +125,18 @@ func TestSignature(t *testing.T) {
 		nil,
 	}
 	signature.generateSigningKey(secret)
-	dir := "aws4_testsuite"
 
-	d, err := os.Open(dir)
+	// Get a slice of awsTestCase structs based on the files in
+	// the aws4_testsuite directory.
+	//
+	tests, err := buildAWSSuite()
 	if err != nil {
 		t.Fatal(err)
 	}
-	f, err := d.Readdirnames(0)
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	sort.Strings(f)
-
-	files := make([]string, 0)
-	for i := 0; i < len(f)-1; {
-		if filepath.Ext(f[i]) == ".req" &&
-			filepath.Ext(f[i+1]) == ".sreq" {
-			files = append(files, f[i][:len(f[i])-4])
-			i += 2
-		} else {
-			i++
-		}
-	}
-
-	tests := make([]*testData, 0)
-	for _, f := range files {
-		var err error
-		d := new(testData)
-		d.base = f
-
-		// read in the raw request and convert it to go's internal format
-		d.req, err = ioutil.ReadFile(dir + "/" + f + ".req")
-		if err != nil {
-			t.Error("reading", d.base, err)
-			continue
-		}
-		// go doesn't like post requests with spaces in them
-		if d.base == "post-vanilla-query-nonunreserved" ||
-			d.base == "post-vanilla-query-space" ||
-			d.base == "get-slashes" {
-			// skip tests with spacing in URLs or invalid escapes or
-			// trailing slashes
-			continue
-		} else {
-			// go doesn't like lowercase http
-			fixed := bytes.Replace(d.req, []byte("http"), []byte("HTTP"), 1)
-			reader := bufio.NewReader(bytes.NewBuffer(fixed))
-			d.request, err = http.ReadRequest(reader)
-			if err != nil {
-				t.Error("parsing", d.base, "request", err)
-				continue
-			}
-			delete(d.request.Header, "User-Agent")
-			if i := bytes.Index(d.req, []byte("\n\n")); i != -1 {
-				d.body = bytes.NewReader(d.req[i+2:])
-				d.request.Body = ioutil.NopCloser(d.body)
-			}
-		}
-
-		d.sreq, err = ioutil.ReadFile(dir + "/" + f + ".sreq")
-		if err != nil {
-			t.Error("reading", d.base, err)
-			continue
-		}
-
-		tests = append(tests, d)
-	}
-
+	// Run each of the tests, for each verifying that we're able
+	// to match the signature in awsTestCase.
+	//
 	for _, f := range tests {
 		err := signature.Sign(f.request, f.body, nil)
 		if err != nil {
