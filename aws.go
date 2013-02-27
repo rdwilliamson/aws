@@ -55,7 +55,7 @@ func stringRequiresEncoding(s string) bool {
 // Note:
 //  * Based on https://launchpad.net/goamz
 //
-func uriEncode(s string) string {
+func uriEncodeString(s string) string {
 
 	// If `s` does not require encoding, we're done.
 	if !stringRequiresEncoding(s) {
@@ -196,7 +196,7 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	parts := strings.Split(path.Clean(r.URL.Path)[1:], "/")
 	for i := range parts {
 		cp.WriteByte('/')
-		cp.WriteString(uriEncode(parts[i]))
+		cp.WriteString(uriEncodeString(parts[i]))
 	}
 	crb.Write(cp.Bytes())
 	crb.WriteByte('\n')
@@ -222,9 +222,9 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 			if j > 0 {
 				cqs.WriteByte('&')
 			}
-			cqs.WriteString(uriEncode(keys[i]))
+			cqs.WriteString(uriEncodeString(keys[i]))
 			cqs.WriteByte('=')
-			cqs.WriteString(uriEncode(parameters[j]))
+			cqs.WriteString(uriEncodeString(parameters[j]))
 		}
 	}
 	if cqs.Len() > 0 {
