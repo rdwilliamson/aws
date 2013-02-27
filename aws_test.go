@@ -29,8 +29,14 @@ func TestSignature(t *testing.T) {
 	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
 	secret := "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
 	access := "AKIDEXAMPLE"
-	signature := &Signature{access, date.Format(ISO8601BasicFormatShort),
-		USEast, "host", [sha256.Size]byte{}}
+	signature := &Signature{
+		access,
+		date.Format(ISO8601BasicFormatShort),
+		USEast,
+		"host",
+		[sha256.Size]byte{},
+		nil,
+	}
 	signature.generateSigningKey(secret)
 	dir := "aws4_testsuite"
 
