@@ -184,14 +184,22 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 
 	credential := s.Date + "/" + s.Region.Name + "/" + s.Service + "/aws4_request"
 
-	// create canonical request
+	// Create the canonical request, which is the string we must sign
+	// with our derived key. See
+	// http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
+	//
 	var crb bytes.Buffer // canonical request buffer
 
-	// 1
+	// 1 - Start with the HTTP request method (GET, PUT, POST, etc.).
+	//
 	crb.WriteString(r.Method)
 	crb.WriteByte('\n')
 
-	// 2
+	// 2 - Add the CanonicalURI parameter. This is the URI-encoded version
+	// of the absolute path component of the URI—everything from the HTTP host
+	// header to the question mark character ('?') that begins the query string
+	// parameters. 
+	//
 	var cp bytes.Buffer // canonical path
 	parts := strings.Split(path.Clean(r.URL.Path)[1:], "/")
 	for i := range parts {
@@ -201,7 +209,9 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	crb.Write(cp.Bytes())
 	crb.WriteByte('\n')
 
-	// 3
+	// 3 - Add the CanonicalQueryString parameter. If the request does not
+	// include a query string, set the value of CanonicalQueryString to an empty string.
+	//
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
 		return err
@@ -232,8 +242,14 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	}
 	crb.WriteByte('\n')
 
-	// 4
-	// TODO check for date and add if required
+	// 4 - Add the CanonicalHeaders parameter, which is a list of all
+	// the HTTP headers for the request. You must include a valid host
+	// header. Any other required headers are described by the service
+	// you're using.
+	//
+	// TODO:
+	//   * check for date and add if required
+	//
 	headers := make([]string, 0, len(r.Header)+1)
 	headersMap := make(map[string]string)
 	for i := range r.Header {
@@ -259,11 +275,18 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	}
 	crb.WriteByte('\n')
 
-	// 5
+	// 5 - Add the SignedHeaders parameter, which is the list of HTTP
+	// headers that you included in the canonical headers. You must include
+	// a list of signed headers because extra headers are often added to the
+	// request by the transport layers. The list of signed headers enables
+	// AWS to determine which headers are part of your original request.
+	// 
 	crb.WriteString(strings.Join(headers, ";"))
 	crb.WriteByte('\n')
 
-	// 6
+	// 6 - Add the payload, which you derive from the body of the HTTP
+	// or HTTPS request.
+	//
 	hasher := sha256.New()
 	var hashed [sha256.Size]byte
 	if hash == nil {
