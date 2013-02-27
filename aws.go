@@ -103,16 +103,34 @@ func NewSignature(secret, access string, r *Region, service string) *Signature {
 	return &s
 }
 
-// separate function so that test suite can set a custom date
+// AWS signature Version 4 requires that you sign your message using a key that
+// is derived from your secret access key rather than using the secret access key
+// directly.  See  http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html.
+//
+// Note:
+//  * This is a separate function so that test suite can set a custom date.
+//
 func (s *Signature) generateSigningKey(secret string) {
+
+	// Get an HMAC digest of the date using a key that
+	// is our AWS secret prepended with the string "AWS4".
 	h := hmac.New(sha256.New, []byte("AWS4"+secret))
 	h.Write([]byte(s.Date))
-	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
+
+	// Get an HMAC digest of the region name using a key that
+	// is the HMAC digest computed in the previous step.
+	h = hmac.New(sha256.New, h.Sum(nil))
 	h.Write([]byte(s.Region.Name))
-	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
+
+	// Repeat for service name.
+	h = hmac.New(sha256.New, h.Sum(nil))
 	h.Write([]byte(s.Service))
-	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
+
+	// Repeat for the string "aws4_request".
+	h = hmac.New(sha256.New, h.Sum(nil))
 	h.Write([]byte("aws4_request"))
+
+	// Copy this HMAC into the s.SigningKey byte array.
 	h.Sum(s.SigningKey[:0])
 }
 
