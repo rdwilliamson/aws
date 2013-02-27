@@ -32,30 +32,56 @@ func init() {
 	}
 }
 
-// from https://launchpad.net/goamz
-func encode(s string) string {
-	hex := "0123456789ABCDEF"
-	encode := false
-	for i := 0; i != len(s); i++ {
-		c := s[i]
-		if c > 127 || !unreserved[c] {
-			encode = true
-			break
+// Tests if a character requires encoding in a URI.
+//
+func charRequiresEncoding(c byte) bool {
+	return c > 127 || !unreserved[c]
+}
+
+// Tests if a character requires encoding in a URI.
+//
+func stringRequiresEncoding(s string) bool {
+	for _, c := range []byte(s) {
+		if charRequiresEncoding(c) {
+			return true
 		}
 	}
-	if !encode {
+	return false
+}
+
+// URI encode a string.  Characters that are not in `unreserved` are
+// replaced with their hex encoding preceded by a '%' character.
+//
+// Note:
+//  * Based on https://launchpad.net/goamz
+//
+func uriEncode(s string) string {
+
+	// If `s` does not require encoding, we're done.
+	if !stringRequiresEncoding(s) {
 		return s
 	}
+
+	// Encode `s`.  `e` is initialized to 3x the size of `s`
+	// because that is the max possible length of the hex
+	// encoded copy of `s`, assuming each character needed to
+	// be encoded.
 	e := make([]byte, len(s)*3)
 	ei := 0
-	for i := 0; i != len(s); i++ {
-		c := s[i]
-		if c > 127 || !unreserved[c] {
+	const hex = "0123456789ABCDEF"
+	for _, c := range []byte(s) {
+
+		if charRequiresEncoding(c) {
+
+			// This character requires encoding.
 			e[ei] = '%'
 			e[ei+1] = hex[c>>4]
 			e[ei+2] = hex[c&0xF]
 			ei += 3
+
 		} else {
+
+			// This character does not require encoding.
 			e[ei] = c
 			ei += 1
 		}
@@ -170,7 +196,7 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	parts := strings.Split(path.Clean(r.URL.Path)[1:], "/")
 	for i := range parts {
 		cp.WriteByte('/')
-		cp.WriteString(encode(parts[i]))
+		cp.WriteString(uriEncode(parts[i]))
 	}
 	crb.Write(cp.Bytes())
 	crb.WriteByte('\n')
@@ -196,9 +222,9 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 			if j > 0 {
 				cqs.WriteByte('&')
 			}
-			cqs.WriteString(encode(keys[i]))
+			cqs.WriteString(uriEncode(keys[i]))
 			cqs.WriteByte('=')
-			cqs.WriteString(encode(parameters[j]))
+			cqs.WriteString(uriEncode(parameters[j]))
 		}
 	}
 	if cqs.Len() > 0 {
