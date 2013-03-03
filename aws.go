@@ -89,7 +89,7 @@ func uriEncodeString(s string) string {
 	return string(e[:ei])
 }
 
-// Return a new copy of the input byte array that is 
+// Return a new copy of the input byte array that is
 // hex encoded.
 //
 func toHex(x []byte) []byte {
@@ -198,7 +198,7 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	// 2 - Add the CanonicalURI parameter. This is the URI-encoded version
 	// of the absolute path component of the URI—everything from the HTTP host
 	// header to the question mark character ('?') that begins the query string
-	// parameters. 
+	// parameters.
 	//
 	var cp bytes.Buffer // canonical path
 	parts := strings.Split(path.Clean(r.URL.Path)[1:], "/")
@@ -280,7 +280,7 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	// a list of signed headers because extra headers are often added to the
 	// request by the transport layers. The list of signed headers enables
 	// AWS to determine which headers are part of your original request.
-	// 
+	//
 	crb.WriteString(strings.Join(headers, ";"))
 	crb.WriteByte('\n')
 
