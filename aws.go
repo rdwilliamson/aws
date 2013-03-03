@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/hex"
 	"io"
 	"net/http"
 	"net/url"
@@ -31,30 +32,56 @@ func init() {
 	}
 }
 
-// from https://launchpad.net/goamz
-func encode(s string) string {
-	hex := "0123456789ABCDEF"
-	encode := false
-	for i := 0; i != len(s); i++ {
-		c := s[i]
-		if c > 127 || !unreserved[c] {
-			encode = true
-			break
+// Tests if a character requires encoding in a URI.
+//
+func charRequiresEncoding(c byte) bool {
+	return c > 127 || !unreserved[c]
+}
+
+// Tests if a character requires encoding in a URI.
+//
+func stringRequiresEncoding(s string) bool {
+	for _, c := range []byte(s) {
+		if charRequiresEncoding(c) {
+			return true
 		}
 	}
-	if !encode {
+	return false
+}
+
+// URI encode a string.  Characters that are not in `unreserved` are
+// replaced with their hex encoding preceded by a '%' character.
+//
+// Note:
+//  * Based on https://launchpad.net/goamz
+//
+func uriEncodeString(s string) string {
+
+	// If `s` does not require encoding, we're done.
+	if !stringRequiresEncoding(s) {
 		return s
 	}
+
+	// Encode `s`.  `e` is initialized to 3x the size of `s`
+	// because that is the max possible length of the hex
+	// encoded copy of `s`, assuming each character needed to
+	// be encoded.
 	e := make([]byte, len(s)*3)
 	ei := 0
-	for i := 0; i != len(s); i++ {
-		c := s[i]
-		if c > 127 || !unreserved[c] {
+	const hex = "0123456789ABCDEF"
+	for _, c := range []byte(s) {
+
+		if charRequiresEncoding(c) {
+
+			// This character requires encoding.
 			e[ei] = '%'
 			e[ei+1] = hex[c>>4]
 			e[ei+2] = hex[c&0xF]
 			ei += 3
+
 		} else {
+
+			// This character does not require encoding.
 			e[ei] = c
 			ei += 1
 		}
@@ -62,13 +89,12 @@ func encode(s string) string {
 	return string(e[:ei])
 }
 
+// Return a new copy of the input byte array that is 
+// hex encoded.
+//
 func toHex(x []byte) []byte {
-	hex := "0123456789abcdef"
 	z := make([]byte, 2*len(x))
-	for i, v := range x {
-		z[2*i] = hex[(v&0xf0)>>4]
-		z[2*i+1] = hex[v&0x0f]
-	}
+	hex.Encode(z, x)
 	return z
 }
 
@@ -103,16 +129,34 @@ func NewSignature(secret, access string, r *Region, service string) *Signature {
 	return &s
 }
 
-// separate function so that test suite can set a custom date
+// AWS signature Version 4 requires that you sign your message using a key that
+// is derived from your secret access key rather than using the secret access key
+// directly.  See  http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html.
+//
+// Note:
+//  * This is a separate function so that test suite can set a custom date.
+//
 func (s *Signature) generateSigningKey(secret string) {
+
+	// Get an HMAC digest of the date using a key that
+	// is our AWS secret prepended with the string "AWS4".
 	h := hmac.New(sha256.New, []byte("AWS4"+secret))
 	h.Write([]byte(s.Date))
-	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
+
+	// Get an HMAC digest of the region name using a key that
+	// is the HMAC digest computed in the previous step.
+	h = hmac.New(sha256.New, h.Sum(nil))
 	h.Write([]byte(s.Region.Name))
-	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
+
+	// Repeat for service name.
+	h = hmac.New(sha256.New, h.Sum(nil))
 	h.Write([]byte(s.Service))
-	h = hmac.New(sha256.New, h.Sum(s.SigningKey[:0]))
+
+	// Repeat for the string "aws4_request".
+	h = hmac.New(sha256.New, h.Sum(nil))
 	h.Write([]byte("aws4_request"))
+
+	// Copy this HMAC into the s.SigningKey byte array.
 	h.Sum(s.SigningKey[:0])
 }
 
@@ -140,24 +184,34 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 
 	credential := s.Date + "/" + s.Region.Name + "/" + s.Service + "/aws4_request"
 
-	// create canonical request
+	// Create the canonical request, which is the string we must sign
+	// with our derived key. See
+	// http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
+	//
 	var crb bytes.Buffer // canonical request buffer
 
-	// 1
+	// 1 - Start with the HTTP request method (GET, PUT, POST, etc.).
+	//
 	crb.WriteString(r.Method)
 	crb.WriteByte('\n')
 
-	// 2
+	// 2 - Add the CanonicalURI parameter. This is the URI-encoded version
+	// of the absolute path component of the URI—everything from the HTTP host
+	// header to the question mark character ('?') that begins the query string
+	// parameters. 
+	//
 	var cp bytes.Buffer // canonical path
 	parts := strings.Split(path.Clean(r.URL.Path)[1:], "/")
 	for i := range parts {
 		cp.WriteByte('/')
-		cp.WriteString(encode(parts[i]))
+		cp.WriteString(uriEncodeString(parts[i]))
 	}
 	crb.Write(cp.Bytes())
 	crb.WriteByte('\n')
 
-	// 3
+	// 3 - Add the CanonicalQueryString parameter. If the request does not
+	// include a query string, set the value of CanonicalQueryString to an empty string.
+	//
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
 		return err
@@ -178,9 +232,9 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 			if j > 0 {
 				cqs.WriteByte('&')
 			}
-			cqs.WriteString(encode(keys[i]))
+			cqs.WriteString(uriEncodeString(keys[i]))
 			cqs.WriteByte('=')
-			cqs.WriteString(encode(parameters[j]))
+			cqs.WriteString(uriEncodeString(parameters[j]))
 		}
 	}
 	if cqs.Len() > 0 {
@@ -188,8 +242,14 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	}
 	crb.WriteByte('\n')
 
-	// 4
-	// TODO check for date and add if required
+	// 4 - Add the CanonicalHeaders parameter, which is a list of all
+	// the HTTP headers for the request. You must include a valid host
+	// header. Any other required headers are described by the service
+	// you're using.
+	//
+	// TODO:
+	//   * check for date and add if required
+	//
 	headers := make([]string, 0, len(r.Header)+1)
 	headersMap := make(map[string]string)
 	for i := range r.Header {
@@ -215,11 +275,18 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	}
 	crb.WriteByte('\n')
 
-	// 5
+	// 5 - Add the SignedHeaders parameter, which is the list of HTTP
+	// headers that you included in the canonical headers. You must include
+	// a list of signed headers because extra headers are often added to the
+	// request by the transport layers. The list of signed headers enables
+	// AWS to determine which headers are part of your original request.
+	// 
 	crb.WriteString(strings.Join(headers, ";"))
 	crb.WriteByte('\n')
 
-	// 6
+	// 6 - Add the payload, which you derive from the body of the HTTP
+	// or HTTPS request.
+	//
 	hasher := sha256.New()
 	var hashed [sha256.Size]byte
 	if hash == nil {

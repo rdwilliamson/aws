@@ -16,36 +16,33 @@ import (
 	"time"
 )
 
-func TestSignature(t *testing.T) {
-	type testData struct {
-		base string
-		req  []byte
-		sreq []byte
+// Struct for holding a single request and its "gold standard"
+// signature so that we may verify we can produce the same.
+//
+type awsTestCase struct {
+	base    string
+	req     []byte
+	sreq    []byte
+	request *http.Request
+	body    io.ReadSeeker
+}
 
-		request *http.Request
-		body    io.ReadSeeker
-	}
-
-	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
-	secret := "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
-	access := "AKIDEXAMPLE"
-	signature := &Signature{access, date.Format(ISO8601BasicFormatShort),
-		USEast, "host", [sha256.Size]byte{}}
-	signature.generateSigningKey(secret)
-	dir := "aws4_testsuite"
+// Get a list of the files in the AWS test suite.
+//
+func getAWSSuiteFiles(dir string) (files []string, err error) {
 
 	d, err := os.Open(dir)
 	if err != nil {
-		t.Fatal(err)
+		return
 	}
 	f, err := d.Readdirnames(0)
 	if err != nil {
-		t.Fatal(err)
+		return
 	}
 
 	sort.Strings(f)
 
-	files := make([]string, 0)
+	files = make([]string, 0)
 	for i := 0; i < len(f)-1; {
 		if filepath.Ext(f[i]) == ".req" &&
 			filepath.Ext(f[i+1]) == ".sreq" {
@@ -55,20 +52,33 @@ func TestSignature(t *testing.T) {
 			i++
 		}
 	}
+	return
 
-	tests := make([]*testData, 0)
+}
+
+// Build a slice of awsTestCase structs based on the "gold standards"
+// distributed by Amazon and located in the aws4_testsuite directory.
+//
+func buildAWSSuite() (tests []*awsTestCase, err error) {
+
+	// Get the list of files in the aws4_testsuite directory
+	dir := "aws4_testsuite"
+	files, err := getAWSSuiteFiles(dir)
+	if err != nil {
+		return
+	}
+
+	tests = make([]*awsTestCase, 0)
 	for _, f := range files {
-		var err error
-		d := new(testData)
+		d := new(awsTestCase)
 		d.base = f
 
-		// read in the raw request and convert it to go's internal format
+		// Read in the raw request and convert it to go's internal format
 		d.req, err = ioutil.ReadFile(dir + "/" + f + ".req")
 		if err != nil {
-			t.Error("reading", d.base, err)
-			continue
+			return
 		}
-		// go doesn't like post requests with spaces in them
+		// Go doesn't like post requests with spaces in them
 		if d.base == "post-vanilla-query-nonunreserved" ||
 			d.base == "post-vanilla-query-space" ||
 			d.base == "get-slashes" {
@@ -76,13 +86,13 @@ func TestSignature(t *testing.T) {
 			// trailing slashes
 			continue
 		} else {
-			// go doesn't like lowercase http
+
+			// Go doesn't like lowercase http
 			fixed := bytes.Replace(d.req, []byte("http"), []byte("HTTP"), 1)
 			reader := bufio.NewReader(bytes.NewBuffer(fixed))
 			d.request, err = http.ReadRequest(reader)
 			if err != nil {
-				t.Error("parsing", d.base, "request", err)
-				continue
+				return
 			}
 			delete(d.request.Header, "User-Agent")
 			if i := bytes.Index(d.req, []byte("\n\n")); i != -1 {
@@ -93,13 +103,40 @@ func TestSignature(t *testing.T) {
 
 		d.sreq, err = ioutil.ReadFile(dir + "/" + f + ".sreq")
 		if err != nil {
-			t.Error("reading", d.base, err)
-			continue
+			return
 		}
 
 		tests = append(tests, d)
 	}
+	return
+}
 
+func TestSignature(t *testing.T) {
+
+	date := time.Date(2011, time.September, 9, 0, 0, 0, 0, time.UTC)
+	secret := "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
+	access := "AKIDEXAMPLE"
+	signature := &Signature{
+		access,
+		date.Format(ISO8601BasicFormatShort),
+		USEast,
+		"host",
+		[sha256.Size]byte{},
+		nil,
+	}
+	signature.generateSigningKey(secret)
+
+	// Get a slice of awsTestCase structs based on the files in
+	// the aws4_testsuite directory.
+	//
+	tests, err := buildAWSSuite()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Run each of the tests, for each verifying that we're able
+	// to match the signature in awsTestCase.
+	//
 	for _, f := range tests {
 		err := signature.Sign(f.request, f.body, nil)
 		if err != nil {
