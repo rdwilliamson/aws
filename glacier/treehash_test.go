@@ -4,6 +4,10 @@ import (
 	"testing"
 )
 
+const (
+	MiB = 1024 * 1024
+)
+
 func TestTreeHash(t *testing.T) {
 	out1 := "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e"
 	out2 := "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e"
