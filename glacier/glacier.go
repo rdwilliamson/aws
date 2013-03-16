@@ -1,6 +1,7 @@
 package glacier
 
 import (
+	"encoding/hex"
 	"github.com/rdwilliamson/aws"
 	"net/http"
 )
@@ -26,11 +27,7 @@ func NewConnection(secret, access string, r *aws.Region) *Connection {
 // TODO method to log things such as x-amzn-RequestId
 
 func toHex(x []byte) []byte {
-	hex := "0123456789abcdef"
 	z := make([]byte, 2*len(x))
-	for i, v := range x {
-		z[2*i] = hex[(v&0xf0)>>4]
-		z[2*i+1] = hex[v&0x0f]
-	}
+	hex.Encode(z, x)
 	return z
 }
