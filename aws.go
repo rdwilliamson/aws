@@ -130,8 +130,9 @@ func NewSignature(secret, access string, r *Region, service string) *Signature {
 }
 
 // AWS signature Version 4 requires that you sign your message using a key that
-// is derived from your secret access key rather than using the secret access key
-// directly.  See  http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html.
+// is derived from your secret access key rather than using the secret access
+// key directly. See
+// http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
 //
 // Note:
 //  * This is a separate function so that test suite can set a custom date.
@@ -175,14 +176,15 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	// TODO check if header already has hash instead of parameter
 	// TODO check all error cases first
 
+	// If the date has changed and we sill have access to the secret and access
+	// keys create a new signing key.
+	//
 	if today := time.Now().UTC().Format(ISO8601BasicFormatShort); s.NewKeys != nil && s.Date != today {
 		access, secret := s.NewKeys()
 		s.AccessID = access
 		s.Date = today
 		s.generateSigningKey(secret)
 	}
-
-	credential := s.Date + "/" + s.Region.Name + "/" + s.Service + "/aws4_request"
 
 	// Create the canonical request, which is the string we must sign
 	// with our derived key. See
@@ -210,7 +212,8 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	crb.WriteByte('\n')
 
 	// 3 - Add the CanonicalQueryString parameter. If the request does not
-	// include a query string, set the value of CanonicalQueryString to an empty string.
+	// include a query string, set the value of CanonicalQueryString to an empty
+	// string.
 	//
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
@@ -242,10 +245,9 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	}
 	crb.WriteByte('\n')
 
-	// 4 - Add the CanonicalHeaders parameter, which is a list of all
-	// the HTTP headers for the request. You must include a valid host
-	// header. Any other required headers are described by the service
-	// you're using.
+	// 4 - Add the CanonicalHeaders parameter, which is a list of all the HTTP
+	// headers for the request. You must include a valid host header. Any other
+	// required headers are described by the service you're using.
 	//
 	// TODO:
 	//   * check for date and add if required
@@ -275,11 +277,11 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	}
 	crb.WriteByte('\n')
 
-	// 5 - Add the SignedHeaders parameter, which is the list of HTTP
-	// headers that you included in the canonical headers. You must include
-	// a list of signed headers because extra headers are often added to the
-	// request by the transport layers. The list of signed headers enables
-	// AWS to determine which headers are part of your original request.
+	// 5 - Add the SignedHeaders parameter, which is the list of HTTP headers
+	// that you included in the canonical headers. You must include a list of
+	// signed headers because extra headers are often added to the request by
+	// the transport layers. The list of signed headers enables AWS to determine
+	// which headers are part of your original request.
 	//
 	crb.WriteString(strings.Join(headers, ";"))
 	crb.WriteByte('\n')
@@ -300,19 +302,32 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 		crb.Write(toHex(hash))
 	}
 
-	// create string to sign
-	var sts bytes.Buffer
+	// Create the string to sign, which includes meta information about our
+	// request and the canonical request that we just created. See
+	// http://docs.aws.amazon.com/general/latest/gr/sigv4-create-string-to-sign.html
+	//
+	var sts bytes.Buffer // string to sign
 
-	// 1
+	// 1 - Start with the Algorithm designation, followed by a newline
+	// character.
+	//
 	sts.WriteString("AWS4-HMAC-SHA256\n")
 
-	// 2
-	// TODO parsing dates just to pass test suite, implement such that the date
-	// is just overwritten if it exists
+	// 2 - Append the RequestDate value, which is specified by using the ISO8601
+	// Basic format via the x-amz-date header in the YYYYMMDD'T'HHMMSS'Z'
+	// format. This value must match the value you used in any previous steps.
+	//
+	// Note:
+	//  * Parsing data just for test suite.
+	//
+	// TODO:
+	//  * Could be different day than signature. We should probably return an
+	//    error here instead of incurring the cost of sending the request to aws
+	//    and have it return an error.
 	var dateTime time.Time
 	dates, ok := r.Header["Date"]
 	if !ok || len(dates) < 1 {
-		dateTime = time.Now().UTC() // TODO could be different day than signature
+		dateTime = time.Now().UTC()
 		r.Header.Set("Date", dateTime.Format(time.RFC3339))
 	} else {
 		dateTime, err = time.Parse(time.RFC1123, dates[0])
@@ -323,20 +338,44 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	sts.WriteString(dateTime.Format(ISO8601BasicFormat))
 	sts.WriteByte('\n')
 
-	// 3
+	// 3 - Append the CredentialScope value, which is a string that includes the
+	// date, the region you are targeting, the service you are requesting, and a
+	// termination string ("aws4_request") in lowercase characters. The region
+	// and service name strings must be UTF-8 encoded.
+	//
+	credential := s.Date + "/" + s.Region.Name + "/" + s.Service + "/aws4_request"
 	sts.WriteString(credential)
 	sts.WriteByte('\n')
 
-	// 4
+	// 4 - Append the hashed canonical request. The hashed canonical request
+	// must be lowercase base-16 encoded, as defined by Section 8 of RFC 4648.
+	//
 	hasher.Write(crb.Bytes())
 	sts.Write(toHex(hasher.Sum(hashed[:0])))
 
-	// sign string and write to authorization header
+	// Add authorization parameters that AWS uses to ensure the validity and
+	// authenticity of the request.
+	//
 	var authz bytes.Buffer
-	authz.WriteString("AWS4-HMAC-SHA256 Credential=")
+
+	// Algorithm: The method used to sign the request. For signature version 4,
+	// use the value AWS4-HMAC-SHA256.
+	//
+	authz.WriteString("AWS4-HMAC-SHA256")
+
+	// Credential: A slash('/')-separated string that is formed by concatenating
+	// your Access Key ID and your credential scope components. Credential scope
+	// comprises the date (YYYYMMDD), the AWS region, the service name, and a
+	// special termination string (aws4_request).
+	//
+	authz.WriteString(" Credential=")
 	authz.WriteString(s.AccessID)
 	authz.WriteByte('/')
 	authz.WriteString(credential)
+
+	// SignedHeaders: A semicolon(';')-delimited list of HTTP headers to include
+	// in the signature.
+	//
 	authz.WriteString(", SignedHeaders=")
 	for i := range headers {
 		if i > 0 {
@@ -344,12 +383,16 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 		}
 		authz.WriteString(headers[i])
 	}
+
+	// Signature: A hexadecimal-encoded string from your derived signing key and
+	// your string to sign as inputs to the keyed hash function that you use to
+	// calculate the signature.
+	//
 	authz.WriteString(", Signature=")
 	h := hmac.New(sha256.New, s.SigningKey[:])
 	h.Write(sts.Bytes())
 	authz.Write(toHex(h.Sum(hashed[:0])))
 
 	r.Header.Add("Authorization", authz.String())
-
 	return nil
 }
