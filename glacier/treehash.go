@@ -155,17 +155,12 @@ func (th *TreeHash) Close() error {
 }
 
 // Returns the tree hash of everything written.
-func (th *TreeHash) TreeHash() string {
-	return string(toHex(th.nodes[len(th.nodes)-1].hash[:]))
+func (th *TreeHash) TreeHash() []byte {
+	return th.nodes[len(th.nodes)-1].hash[:]
 }
 
 // Returns the hex string hash of everything written.
-func (th *TreeHash) Hash() string {
-	return string(toHex(th.whole.Sum(nil)))
-}
-
-// Returns the hash of everything written.
-func (th *TreeHash) HashBytes() []byte {
+func (th *TreeHash) Hash() []byte {
 	return th.whole.Sum(nil)
 }
 

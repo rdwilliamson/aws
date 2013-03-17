@@ -33,11 +33,13 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 		return "", err
 	}
 
-	request.Header.Add("x-amz-archive-description", description)
-	request.Header.Add("x-amz-sha256-tree-hash", th.TreeHash())
-	request.Header.Add("x-amz-content-sha256", th.Hash())
+	hash := th.Hash()
 
-	c.Signature.Sign(request, nil, th.HashBytes())
+	request.Header.Add("x-amz-archive-description", description)
+	request.Header.Add("x-amz-sha256-tree-hash", string(toHex(th.TreeHash())))
+	request.Header.Add("x-amz-content-sha256", string(toHex(hash)))
+
+	c.Signature.Sign(request, nil, hash)
 
 	response, err := c.Client.Do(request)
 	if err != nil {

@@ -154,12 +154,14 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body 
 		return err
 	}
 
-	request.Header.Add("x-amz-content-sha256", th.Hash())
-	request.Header.Add("x-amz-sha256-tree-hash", th.TreeHash())
+	hash := th.Hash()
+
+	request.Header.Add("x-amz-content-sha256", string(toHex(hash)))
+	request.Header.Add("x-amz-sha256-tree-hash", string(toHex(th.TreeHash())))
 	request.Header.Add("Content-Range", fmt.Sprintf("bytes %d-%d/*", start, start+uint64(n)-1))
 	request.ContentLength = n
 
-	c.Signature.Sign(request, nil, th.HashBytes())
+	c.Signature.Sign(request, nil, hash)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
