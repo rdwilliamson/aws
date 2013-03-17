@@ -54,3 +54,22 @@ func TestTreeHash(t *testing.T) {
 		t.Fatal("hash of entire file, wanted:", out6, "got:", th.Hash())
 	}
 }
+
+func BenchmarkTreeHash(b *testing.B) {
+	b.StopTimer()
+	data := make([]byte, 1024)
+	for i := range data {
+		data[i] = 'a'
+	}
+	th := NewTreeHash()
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		n, err := th.Write(data)
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.SetBytes(int64(n))
+	}
+	th.Close()
+}
