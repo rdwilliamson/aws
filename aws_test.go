@@ -246,3 +246,44 @@ foo=bar`)
 		}
 	}
 }
+
+func TestKeysFromFile(t *testing.T) {
+	name := os.TempDir() + string(filepath.Separator) + "aws_keys_test"
+	tests := []string{
+		`secret access`,
+		`secret  access`,
+		`secret
+access`,
+		`secret
+access
+`,
+		`
+secret	access`,
+	}
+
+	for _, v := range tests {
+		create, err := os.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = create.Write([]byte(v))
+		if err != nil {
+			create.Close()
+			t.Fatal(err)
+		}
+		create.Close()
+
+		secret, access, err := KeysFromFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if secret != "secret" || access != "access" {
+			t.Error("unexpected keys from", v)
+		}
+
+		err = os.Remove(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -98,10 +99,23 @@ func toHex(x []byte) []byte {
 	return z
 }
 
-// Get secret and access ID keys (in that order) from enviroment variables
+// Get secret and access ID keys (in that order) from environment variables
 // AWS_SECRET_KEY and AWS_ACCESS_KEY.
 func KeysFromEnviroment() (string, string) {
 	return os.Getenv("AWS_SECRET_KEY"), os.Getenv("AWS_ACCESS_KEY")
+}
+
+// Get secret and access ID keys (in that order) from a file.
+func KeysFromFile(name string) (string, string, error) {
+	file, err := os.Open(name)
+	if err != nil {
+		return "", "", err
+	}
+	defer file.Close()
+
+	var secret, access string
+	_, err = fmt.Fscan(file, &secret, &access)
+	return secret, access, err
 }
 
 // Signature contains the access ID key, UTC date in YYYYMMDD format, region,
