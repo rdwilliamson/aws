@@ -410,3 +410,65 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	r.Header.Add("Authorization", authz.String())
 	return nil
 }
+
+// The payload of an AWS request must be hashed and the http requests body is
+// only a reader, there is no way to rewind it. Thus a payload must return a
+// reader which will replace the http requests body (optional, if nil it is
+// unchanged), the hash of the payload, and any errors encountered.
+type Payload interface {
+	Payload() (io.Reader, []byte, error)
+}
+
+type inMemoryHasher struct {
+	reader io.Reader
+}
+
+// Returns a payload that creates a copy of the request in memory. This copy is
+// used to calculate the hash and send the request so it is safe to do what ever
+// you please with the original.
+func InMemory(r io.Reader) Payload {
+	return &inMemoryHasher{r}
+}
+
+func (v *inMemoryHasher) Payload() (io.Reader, []byte, error) {
+	var buffer bytes.Buffer
+	hasher := sha256.New()
+	_, err := io.Copy(io.MultiWriter(&buffer, hasher), v.reader)
+	return bytes.NewReader(buffer.Bytes()), hasher.Sum(nil), err
+}
+
+type readSeekerHasher struct {
+	readSeeker io.ReadSeeker
+}
+
+// Returns a payload reads the until EOF and seeks back to where it started.
+// Useful for example if the payload is a large file on disk and you want to
+// avoid copying it into memory.
+func ReadSeeker(rs io.ReadSeeker) Payload {
+	return &readSeekerHasher{rs}
+}
+
+func (v *readSeekerHasher) Payload() (io.Reader, []byte, error) {
+	hasher := sha256.New()
+	// TODO determine current location of read seeker and seek back to it
+	_, err := io.Copy(hasher, v.readSeeker)
+	if err != nil {
+		return nil, nil, err
+	}
+	_, err = v.readSeeker.Seek(0, 0)
+	return v.readSeeker, hasher.Sum(nil), err
+}
+
+type rawHash struct {
+	sum []byte
+}
+
+// If the hash of the payload is already known then this returns a payload that
+// uses the already calculated hash.
+func AlreadyHashed(h []byte) Payload {
+	return &rawHash{h}
+}
+
+func (v *rawHash) Payload() (io.Reader, []byte, error) {
+	return nil, v.sum, nil
+}
