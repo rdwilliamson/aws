@@ -75,7 +75,7 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 		request.Header.Add("x-amz-archive-description", description)
 	}
 
-	c.Signature.Sign(request, nil, nil)
+	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -161,7 +161,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body 
 	request.Header.Add("Content-Range", fmt.Sprintf("bytes %d-%d/*", start, start+uint64(n)-1))
 	request.ContentLength = n
 
-	c.Signature.Sign(request, nil, hash)
+	c.Signature.Sign(request, aws.HashedPayload(hash))
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -229,7 +229,7 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 	request.Header.Add("x-amz-sha256-tree-hash", treeHash)
 	request.Header.Add("x-amz-archive-size", fmt.Sprint(size))
 
-	c.Signature.Sign(request, nil, nil)
+	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -269,7 +269,7 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	c.Signature.Sign(request, nil, nil)
+	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -328,7 +328,7 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 		request.Header.Add("marker", marker)
 	}
 
-	c.Signature.Sign(request, nil, nil)
+	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
 
@@ -416,7 +416,7 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 		request.Header.Add("marker", marker)
 	}
 
-	c.Signature.Sign(request, nil, nil)
+	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {

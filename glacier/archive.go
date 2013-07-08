@@ -39,7 +39,7 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 	request.Header.Add("x-amz-sha256-tree-hash", string(toHex(th.TreeHash())))
 	request.Header.Add("x-amz-content-sha256", string(toHex(hash)))
 
-	c.Signature.Sign(request, nil, hash)
+	c.Signature.Sign(request, aws.HashedPayload(hash))
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -77,7 +77,7 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	c.Signature.Sign(request, nil, nil)
+	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {

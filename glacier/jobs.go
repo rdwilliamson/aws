@@ -1,7 +1,6 @@
 package glacier
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/rdwilliamson/aws"
@@ -120,16 +119,15 @@ type job struct {
 // Returns the job ID or the first error encountered.
 func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description string) (string, error) {
 	j := jobRequest{Type: "archive-retrieval", ArchiveId: archive, Description: description, SNSTopic: topic}
-	rawBody, _ := json.Marshal(j)
-	body := bytes.NewReader(rawBody)
+	body, _ := json.Marshal(j)
 
-	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs", body)
+	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs", nil)
 	if err != nil {
 		return "", err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	c.Signature.Sign(request, body, nil)
+	c.Signature.Sign(request, aws.MemoryPayload(body))
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -163,20 +161,15 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 // Returns the job ID or the first error encountered.
 func (c *Connection) InitiateInventoryJob(vault, topic, description string) (string, error) {
 	j := jobRequest{Type: "inventory-retrieval", Description: description, SNSTopic: topic}
-	rawBody, err := json.Marshal(j)
-	if err != nil {
-		return "", err
-	}
-	body := bytes.NewReader(rawBody)
+	body, _ := json.Marshal(j)
 
-	request, err := http.NewRequest("POST",
-		"https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs", body)
+	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs", nil)
 	if err != nil {
 		return "", err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	c.Signature.Sign(request, body, nil)
+	c.Signature.Sign(request, aws.MemoryPayload(body))
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -213,7 +206,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	c.Signature.Sign(request, nil, nil)
+	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -312,7 +305,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.R
 		request.Header.Add("Range", fmt.Sprintf("bytes=%d-%d", start, end))
 	}
 
-	c.Signature.Sign(request, nil, nil)
+	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -356,7 +349,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	c.Signature.Sign(request, nil, nil)
+	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
@@ -477,7 +470,7 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
 
-	c.Signature.Sign(request, nil, nil)
+	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
 	if err != nil {
