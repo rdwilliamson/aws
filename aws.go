@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -179,14 +180,13 @@ func (s *Signature) generateSigningKey(secret string) {
 // header and sets / overwrites the Date header for now.
 // If the signature was created on a different UTC day the signing will be
 // invalid.
-// If a hash of the body is provided it is used and the body of the request is
-// left alone. If no hash is provided one is created from the ReadSeeker, this
-// reads the entire body and then resets it to the beginning. If there is no
-// body then neither a ReadSeeker or hash is required.
+// The optional payload allows for various methods to hash the request's body.
+// If no playload is supplied the body is copyed into memory to be hashed.
 //
-// Possible errors are an invalid URL query parameters (url.EscapeError) or if
-// the date header isn't in time.RFC1123 format (*time.ParseError).
-func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
+// Possible errors are an invalid URL query parameters (url.EscapeError), if
+// the date header isn't in time.RFC1123 format (*time.ParseError), or an error
+// when calculating the payload's hash.
+func (s *Signature) Sign(r *http.Request, payload Payload) error {
 	// TODO check if header already has hash instead of parameter
 	// TODO check all error cases first
 
@@ -303,18 +303,25 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	// 6 - Add the payload, which you derive from the body of the HTTP
 	// or HTTPS request.
 	//
-	hasher := sha256.New()
-	var hashed [sha256.Size]byte
-	if hash == nil {
-		if rs != nil {
-			io.Copy(hasher, rs)
-			rs.Seek(0, 0)
+	if payload == nil {
+		mem, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			return err
 		}
-		crb.Write(toHex(hasher.Sum(hashed[:0])))
-		hasher.Reset()
-	} else {
-		crb.Write(toHex(hash))
+		err = r.Body.Close()
+		if err != nil {
+			return err
+		}
+		payload = MemoryPayload(mem)
 	}
+	body, hash, err := payload.Payload()
+	if err != nil {
+		return err
+	}
+	if body != nil {
+		r.Body = body
+	}
+	crb.Write(toHex(hash))
 
 	// Create the string to sign, which includes meta information about our
 	// request and the canonical request that we just created. See
@@ -364,6 +371,8 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	// 4 - Append the hashed canonical request. The hashed canonical request
 	// must be lowercase base-16 encoded, as defined by Section 8 of RFC 4648.
 	//
+	hasher := sha256.New()
+	var hashed [sha256.Size]byte
 	hasher.Write(crb.Bytes())
 	sts.Write(toHex(hasher.Sum(hashed[:0])))
 
@@ -411,64 +420,75 @@ func (s *Signature) Sign(r *http.Request, rs io.ReadSeeker, hash []byte) error {
 	return nil
 }
 
+// Provides control over how the payload hash is calculated. If a payload is
+// supplied to Sign the returned ReadCloser (if one is returned) is the new
+// requests body.
+//
 // The payload of an AWS request must be hashed and the http requests body is
-// only a reader, there is no way to rewind it. Thus a payload must return a
-// reader which will replace the http requests body (optional, if nil it is
-// unchanged), the hash of the payload, and any errors encountered.
+// only a reader, there is no way to rewind it.
 type Payload interface {
-	Payload() (io.Reader, []byte, error)
+	Payload() (io.ReadCloser, []byte, error)
 }
 
-type inMemoryHasher struct {
-	reader io.Reader
+type memoryPayload struct {
+	mem []byte
 }
 
-// Returns a payload that creates a copy of the request in memory. This copy is
-// used to calculate the hash and send the request so it is safe to do what ever
-// you please with the original.
-func InMemory(r io.Reader) Payload {
-	return &inMemoryHasher{r}
+// Returns a payload that hashes the memory and then uses it as the requests
+// body.
+func MemoryPayload(m []byte) Payload {
+	return &memoryPayload{m}
 }
 
-func (v *inMemoryHasher) Payload() (io.Reader, []byte, error) {
-	var buffer bytes.Buffer
+func (v *memoryPayload) Payload() (io.ReadCloser, []byte, error) {
 	hasher := sha256.New()
-	_, err := io.Copy(io.MultiWriter(&buffer, hasher), v.reader)
-	return bytes.NewReader(buffer.Bytes()), hasher.Sum(nil), err
+	hasher.Write(v.mem)
+	return ioutil.NopCloser(bytes.NewReader(v.mem)), hasher.Sum(nil), nil
 }
 
-type readSeekerHasher struct {
-	readSeeker io.ReadSeeker
+type readSeekerPayload struct {
+	rs io.ReadSeeker
 }
 
-// Returns a payload reads the until EOF and seeks back to where it started.
-// Useful for example if the payload is a large file on disk and you want to
-// avoid copying it into memory.
-func ReadSeeker(rs io.ReadSeeker) Payload {
-	return &readSeekerHasher{rs}
+// General form of the file payload.
+func ReadSeekerPayload(rs io.ReadSeeker) Payload {
+	return &readSeekerPayload{rs}
 }
 
-func (v *readSeekerHasher) Payload() (io.Reader, []byte, error) {
-	hasher := sha256.New()
-	// TODO determine current location of read seeker and seek back to it
-	_, err := io.Copy(hasher, v.readSeeker)
+// Returns a payload that reads the file to hash it and then reads it again
+// when sending the request. It is the caller's responsibility to close the file
+// once the request is sent.
+func FilePayload(f *os.File) Payload {
+	return &readSeekerPayload{f}
+}
+
+func (v *readSeekerPayload) Payload() (io.ReadCloser, []byte, error) {
+	_, err := v.rs.Seek(0, 0)
 	if err != nil {
 		return nil, nil, err
 	}
-	_, err = v.readSeeker.Seek(0, 0)
-	return v.readSeeker, hasher.Sum(nil), err
+	hasher := sha256.New()
+	_, err = io.Copy(hasher, v.rs)
+	if err != nil {
+		return nil, nil, err
+	}
+	_, err = v.rs.Seek(0, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ioutil.NopCloser(v.rs), hasher.Sum(nil), nil
 }
 
-type rawHash struct {
+type hashedPayload struct {
 	sum []byte
 }
 
-// If the hash of the payload is already known then this returns a payload that
-// uses the already calculated hash.
-func AlreadyHashed(h []byte) Payload {
-	return &rawHash{h}
+// Returns a payload that just returns the precomputed hash. The requests body
+// is untouched.
+func HashedPayload(h []byte) Payload {
+	return &hashedPayload{h}
 }
 
-func (v *rawHash) Payload() (io.Reader, []byte, error) {
+func (v *hashedPayload) Payload() (io.ReadCloser, []byte, error) {
 	return nil, v.sum, nil
 }

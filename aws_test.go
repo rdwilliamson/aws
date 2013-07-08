@@ -138,7 +138,7 @@ func TestSignature(t *testing.T) {
 	// to match the signature in awsTestCase.
 	//
 	for _, f := range tests {
-		err := signature.Sign(f.request, f.body, nil)
+		err := signature.Sign(f.request, nil)
 		if err != nil {
 			t.Error(err)
 			continue
@@ -207,7 +207,7 @@ foo=bar`)
 			request.Body = ioutil.NopCloser(body)
 		}
 		b.StartTimer()
-		_ = signature.Sign(request, body, nil)
+		_ = signature.Sign(request, nil)
 	}
 }
 
@@ -227,7 +227,7 @@ foo=bar`)
 		t.Fatal(err)
 	}
 
-	err = signature.Sign(request, nil, nil)
+	err = signature.Sign(request, nil)
 	if err == nil {
 		t.Error("expected error but got nil")
 	} else {
@@ -237,7 +237,7 @@ foo=bar`)
 	}
 
 	request.URL.RawQuery += "%jk"
-	err = signature.Sign(request, nil, nil)
+	err = signature.Sign(request, nil)
 	if err == nil {
 		t.Error("expected error but got nil")
 	} else {
