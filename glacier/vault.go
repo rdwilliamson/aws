@@ -69,7 +69,7 @@ func (c *Connection) CreateVault(name string) error {
 		return err
 	}
 
-	if response.StatusCode != 201 {
+	if response.StatusCode != http.StatusCreated {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -107,7 +107,7 @@ func (c *Connection) DeleteVault(name string) error {
 		return err
 	}
 
-	if response.StatusCode != 204 {
+	if response.StatusCode != http.StatusNoContent {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -152,7 +152,7 @@ func (c *Connection) DescribeVault(name string) (*Vault, error) {
 	}
 	err1 := response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -229,7 +229,7 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 	}
 	err1 := response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -308,7 +308,7 @@ func (c *Connection) SetVaultNotifications(name string, n *Notifications) error 
 		return err
 	}
 
-	if response.StatusCode != 204 {
+	if response.StatusCode != http.StatusNoContent {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -354,7 +354,7 @@ func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) 
 	}
 	err1 := response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -391,7 +391,7 @@ func (c *Connection) DeleteVaultNotifications(name string) error {
 		return err
 	}
 
-	if response.StatusCode != 204 {
+	if response.StatusCode != http.StatusNoContent {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return err

@@ -82,7 +82,7 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 		return "", err
 	}
 
-	if response.StatusCode != 201 {
+	if response.StatusCode != http.StatusCreated {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return "", err
@@ -168,7 +168,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body 
 		return err
 	}
 
-	if response.StatusCode != 204 {
+	if response.StatusCode != http.StatusNoContent {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -236,7 +236,7 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 		return "", err
 	}
 
-	if response.StatusCode != 201 {
+	if response.StatusCode != http.StatusCreated {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return "", err
@@ -276,7 +276,7 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 		return err
 	}
 
-	if response.StatusCode != 204 {
+	if response.StatusCode != http.StatusNoContent {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return err
@@ -338,7 +338,7 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 	}
 	err1 := response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -429,7 +429,7 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 	}
 	err1 := response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {

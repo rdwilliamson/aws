@@ -46,7 +46,7 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 		return "", err
 	}
 
-	if response.StatusCode != 201 {
+	if response.StatusCode != http.StatusCreated {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return "", err
@@ -84,7 +84,7 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 		return err
 	}
 
-	if response.StatusCode != 204 {
+	if response.StatusCode != http.StatusNoContent {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return err

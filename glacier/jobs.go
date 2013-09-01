@@ -134,7 +134,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 		return "", err
 	}
 
-	if response.StatusCode != 202 {
+	if response.StatusCode != http.StatusAccepted {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return "", err
@@ -176,7 +176,7 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 		return "", err
 	}
 
-	if response.StatusCode != 202 {
+	if response.StatusCode != http.StatusAccepted {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return "", err
@@ -219,7 +219,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	}
 	err1 := response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -312,7 +312,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.R
 		return nil, "", err
 	}
 
-	if response.StatusCode != 200 && response.StatusCode != 206 {
+	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusPartialContent {
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
 			return nil, "", err
@@ -362,7 +362,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 	}
 	err1 := response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
@@ -483,7 +483,7 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 	}
 	err1 := response.Body.Close()
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		var e aws.Error
 		err = json.Unmarshal(body, &e)
 		if err != nil {
