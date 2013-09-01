@@ -61,6 +61,7 @@ type MultipartParts struct {
 // multipart upload because Amazon Glacier does not require you to specify the
 // overall archive size.
 func (c *Connection) InitiateMultipart(vault string, size uint, description string) (string, error) {
+	// Build request.
 	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
 		"/multipart-uploads", nil)
 	if err != nil {
@@ -77,6 +78,7 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return "", err
@@ -84,9 +86,10 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
-		return "", aws.ParseResponseError(response)
+		return "", aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return response.Header.Get("x-amz-multipart-upload-id"), nil
 }
 
@@ -122,6 +125,7 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body io.ReadSeeker) error {
 	// TODO check that data size and start location make sense
 
+	// Build request.
 	request, err := http.NewRequest("PUT", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
 		"/multipart-uploads/"+uploadId, body)
 	if err != nil {
@@ -150,6 +154,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body 
 
 	c.Signature.Sign(request, aws.HashedPayload(hash))
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return err
@@ -157,9 +162,10 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
-		return aws.ParseResponseError(response)
+		return aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return nil
 }
 
@@ -197,6 +203,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body 
 // upload will not appear in List Multipart Uploads response, even if idempotent
 // complete is possible.
 func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size uint64) (string, error) {
+	// Build request.
 	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
 		"/multipart-uploads/"+uploadId, nil)
 	if err != nil {
@@ -209,6 +216,7 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return "", err
@@ -216,9 +224,10 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
-		return "", aws.ParseResponseError(response)
+		return "", aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return response.Header.Get("x-amz-archive-id"), nil
 }
 
@@ -231,6 +240,7 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 //
 // This operation is idempotent.
 func (c *Connection) AbortMultipart(vault, uploadId string) error {
+	// Build request.
 	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
 		"/multipart-uploads/"+uploadId, nil)
 	if err != nil {
@@ -240,6 +250,7 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return err
@@ -247,9 +258,10 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
-		return aws.ParseResponseError(response)
+		return aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return nil
 }
 
@@ -273,6 +285,7 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 // You can also limit the number of parts returned in the response by specifying
 // the limit parameter in the request.
 func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit int) (*MultipartParts, error) {
+	// Build request.
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
 		"/multipart-uploads/"+uploadId, nil)
 	if err != nil {
@@ -290,22 +303,22 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != http.StatusOK {
+		return nil, aws.ParseError(response)
+	}
+
+	// Parse success response.
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, aws.ParseError(body)
-	}
-
-	fmt.Println(string(body))
 
 	var list struct {
 		ArchiveDescription string
@@ -359,6 +372,7 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 // List Parts operation returns parts of a specific multipart upload identified
 // by an Upload ID.
 func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Multipart, string, error) {
+	// Build request.
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
 		"/multipart-uploads", nil)
 	if err != nil {
@@ -376,19 +390,21 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return nil, "", err
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != http.StatusOK {
+		return nil, "", aws.ParseError(response)
+	}
+
+	// Parse success response.
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, "", err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, "", aws.ParseError(body)
 	}
 
 	var list struct {

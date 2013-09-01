@@ -56,6 +56,7 @@ type Notifications struct {
 // and it has no further effect after the first time Amazon Glacier creates the
 // specified vault.
 func (c *Connection) CreateVault(name string) error {
+	// Build request.
 	request, err := http.NewRequest("PUT", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
 	if err != nil {
 		return err
@@ -64,6 +65,7 @@ func (c *Connection) CreateVault(name string) error {
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return err
@@ -71,9 +73,10 @@ func (c *Connection) CreateVault(name string) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
-		return aws.ParseResponseError(response)
+		return aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return nil
 }
 
@@ -85,6 +88,7 @@ func (c *Connection) CreateVault(name string) error {
 //
 // This operation is idempotent.
 func (c *Connection) DeleteVault(name string) error {
+	// Build request.
 	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
 	if err != nil {
 		return err
@@ -93,6 +97,7 @@ func (c *Connection) DeleteVault(name string) error {
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return err
@@ -100,9 +105,10 @@ func (c *Connection) DeleteVault(name string) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
-		return aws.ParseResponseError(response)
+		return aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return nil
 }
 
@@ -115,6 +121,7 @@ func (c *Connection) DeleteVault(name string) error {
 // archive from a vault, and then immediately send a Describe Vault request, the
 // response might not reflect the changes.
 func (c *Connection) DescribeVault(name string) (*Vault, error) {
+	// Build request.
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
 	if err != nil {
 		return nil, err
@@ -123,19 +130,21 @@ func (c *Connection) DescribeVault(name string) (*Vault, error) {
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != http.StatusOK {
+		return nil, aws.ParseError(response)
+	}
+
+	// Parse success response.
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, aws.ParseError(body)
 	}
 
 	var v vault
@@ -175,6 +184,7 @@ func (c *Connection) DescribeVault(name string) (*Vault, error) {
 // number of vaults returned in the response by specifying the limit parameter
 // in the request.
 func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, error) {
+	// Build request.
 	if limit < 0 || limit > 1000 {
 		// TODO return predeclared variable
 		return nil, "", errors.New("limit must be 1 through 1000")
@@ -195,19 +205,21 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return nil, "", err
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != http.StatusOK {
+		return nil, "", aws.ParseError(response)
+	}
+
+	// Parse success response.
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, "", err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, "", aws.ParseError(body)
 	}
 
 	var vaults struct {
@@ -261,6 +273,7 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 // specific to a vault; therefore, it is also referred to as a vault
 // subresource.
 func (c *Connection) SetVaultNotifications(name string, n *Notifications) error {
+	// Build request.
 	body, err := json.Marshal(n)
 	if err != nil {
 		return err
@@ -275,6 +288,7 @@ func (c *Connection) SetVaultNotifications(name string, n *Notifications) error 
 
 	c.Signature.Sign(request, aws.MemoryPayload(body))
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return err
@@ -282,9 +296,10 @@ func (c *Connection) SetVaultNotifications(name string, n *Notifications) error 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
-		return aws.ParseResponseError(response)
+		return aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return nil
 }
 
@@ -292,6 +307,7 @@ func (c *Connection) SetVaultNotifications(name string, n *Notifications) error 
 // the vault. If notification configuration for a vault is not set, the
 // operation returns a 404 Not Found error.
 func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) {
+	// Build request.
 	var results Notifications
 
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name+
@@ -303,19 +319,21 @@ func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) 
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != http.StatusOK {
+		return nil, aws.ParseError(response)
+	}
+
+	// Parse success response.
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, aws.ParseError(body)
 	}
 
 	err = json.Unmarshal(body, &results)
@@ -332,6 +350,7 @@ func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) 
 // receive some notifications for a short time after you send the delete
 // request.
 func (c *Connection) DeleteVaultNotifications(name string) error {
+	// Build request.
 	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name+
 		"/notification-configuration", nil)
 	if err != nil {
@@ -341,6 +360,7 @@ func (c *Connection) DeleteVaultNotifications(name string) error {
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return err
@@ -348,8 +368,9 @@ func (c *Connection) DeleteVaultNotifications(name string) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
-		return aws.ParseResponseError(response)
+		return aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return nil
 }

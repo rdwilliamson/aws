@@ -118,6 +118,7 @@ type job struct {
 //
 // Returns the job ID or the first error encountered.
 func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description string) (string, error) {
+	// Build request.
 	j := jobRequest{Type: "archive-retrieval", ArchiveId: archive, Description: description, SNSTopic: topic}
 	body, _ := json.Marshal(j)
 
@@ -129,6 +130,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 
 	c.Signature.Sign(request, aws.MemoryPayload(body))
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return "", err
@@ -136,9 +138,10 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusAccepted {
-		return "", aws.ParseResponseError(response)
+		return "", aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return response.Header.Get("x-amz-job-id"), nil
 }
 
@@ -149,6 +152,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 //
 // Returns the job ID or the first error encountered.
 func (c *Connection) InitiateInventoryJob(vault, topic, description string) (string, error) {
+	// Build request.
 	j := jobRequest{Type: "inventory-retrieval", Description: description, SNSTopic: topic}
 	body, _ := json.Marshal(j)
 
@@ -160,6 +164,7 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 
 	c.Signature.Sign(request, aws.MemoryPayload(body))
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return "", err
@@ -167,9 +172,10 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusAccepted {
-		return "", aws.ParseResponseError(response)
+		return "", aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return response.Header.Get("x-amz-job-id"), nil
 }
 
@@ -178,6 +184,7 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 //
 // Returns the job and the first error, if any, encountered.
 func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
+	// Build request.
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+jobId, nil)
 	if err != nil {
 		return nil, err
@@ -186,19 +193,21 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != http.StatusOK {
+		return nil, aws.ParseError(response)
+	}
+
+	// Parse success response.
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, aws.ParseError(body)
 	}
 
 	var j job
@@ -268,6 +277,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 // specify a range that starts at 2 MB and ends at 3.1 MB (the end of the
 // archive), then the x-amz-sha256-tree-hash is returned as a response header.
 func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.ReadCloser, string, error) {
+	// Build request.
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
 		"/output", nil)
 	if err != nil {
@@ -280,17 +290,19 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.R
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return nil, "", err
 	}
 
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusPartialContent {
-		err := aws.ParseResponseError(response)
+		err := aws.ParseError(response)
 		response.Body.Close()
 		return nil, "", err
 	}
 
+	// Parse success response.
 	return response.Body, response.Header.Get("x-amz-sha256-tree-hash"), nil
 }
 
@@ -306,6 +318,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.R
 // you might find the vault inventory useful to reconcile information, as
 // needed, in your database with the actual vault inventory.
 func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
+	// Build request.
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
 		"/output", nil)
 	if err != nil {
@@ -315,19 +328,21 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != http.StatusOK {
+		return nil, aws.ParseError(response)
+	}
+
+	// Parse success response.
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, aws.ParseError(body)
 	}
 
 	var i struct {
@@ -399,6 +414,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 // network error. In this scenario, you can retry and download the archive while
 // the job exists.
 func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit int) ([]Job, string, error) {
+	// Build request.
 	get, err := url.Parse("https://" + c.Signature.Region.Glacier + "/-/vaults/" + vault + "/jobs")
 	if err != nil {
 		return nil, "", err
@@ -431,19 +447,21 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return nil, "", err
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != http.StatusOK {
+		return nil, "", aws.ParseError(response)
+	}
+
+	// Parse success response.
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, "", err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, "", aws.ParseError(body)
 	}
 
 	var jl jobList

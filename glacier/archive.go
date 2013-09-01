@@ -12,6 +12,7 @@ import (
 //
 // Returns the archive ID or the first error encountered.
 func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, description string) (string, error) {
+	// Build reuest.
 	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives",
 		archive)
 	if err != nil {
@@ -39,6 +40,7 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 
 	c.Signature.Sign(request, aws.HashedPayload(hash))
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return "", err
@@ -46,9 +48,10 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
-		return "", aws.ParseResponseError(response)
+		return "", aws.ParseError(response)
 	}
 
+	// Parse success response.
 	_, location := path.Split(response.Header.Get("Location"))
 	return location, nil
 }
@@ -57,6 +60,7 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 //
 // Returns the first error encountered.
 func (c *Connection) DeleteArchive(vault, archive string) error {
+	// Build request.
 	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/archives/"+
 		archive, nil)
 	if err != nil {
@@ -66,6 +70,7 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 
 	c.Signature.Sign(request, nil)
 
+	// Perform request.
 	response, err := c.Client.Do(request)
 	if err != nil {
 		return err
@@ -73,8 +78,9 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
-		return aws.ParseResponseError(response)
+		return aws.ParseError(response)
 	}
 
+	// Parse success response.
 	return nil
 }
