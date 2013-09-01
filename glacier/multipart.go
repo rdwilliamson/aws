@@ -83,21 +83,7 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 	}
 
 	if response.StatusCode != http.StatusCreated {
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return "", err
-		}
-		err = response.Body.Close()
-		if err != nil {
-			return "", err
-		}
-
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return "", err
-		}
-		return "", &e
+		return "", aws.ParseResponseError(response)
 	}
 
 	return response.Header.Get("x-amz-multipart-upload-id"), response.Body.Close()
@@ -169,17 +155,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body 
 	}
 
 	if response.StatusCode != http.StatusNoContent {
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return err
-		}
-		response.Body.Close()
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return err
-		}
-		return &e
+		return aws.ParseResponseError(response)
 	}
 
 	return response.Body.Close()
@@ -237,17 +213,7 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 	}
 
 	if response.StatusCode != http.StatusCreated {
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return "", err
-		}
-		response.Body.Close()
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return "", err
-		}
-		return "", &e
+		return "", aws.ParseResponseError(response)
 	}
 
 	return response.Header.Get("x-amz-archive-id"), response.Body.Close()
@@ -277,17 +243,7 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 	}
 
 	if response.StatusCode != http.StatusNoContent {
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return err
-		}
-		response.Body.Close()
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return err
-		}
-		return &e
+		return aws.ParseResponseError(response)
 	}
 
 	return response.Body.Close()
@@ -339,12 +295,7 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return nil, err
-		}
-		return nil, &e
+		return nil, aws.ParseError(body)
 	}
 
 	fmt.Println(string(body))
@@ -430,12 +381,7 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return nil, "", err
-		}
-		return nil, "", &e
+		return nil, "", aws.ParseError(body)
 	}
 
 	var list struct {

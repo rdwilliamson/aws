@@ -135,17 +135,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 	}
 
 	if response.StatusCode != http.StatusAccepted {
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return "", err
-		}
-		response.Body.Close()
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return "", err
-		}
-		return "", &e
+		return "", aws.ParseResponseError(response)
 	}
 
 	response.Body.Close()
@@ -177,17 +167,7 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 	}
 
 	if response.StatusCode != http.StatusAccepted {
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return "", err
-		}
-		response.Body.Close()
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return "", err
-		}
-		return "", &e
+		return "", aws.ParseResponseError(response)
 	}
 
 	response.Body.Close()
@@ -220,12 +200,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return nil, err
-		}
-		return nil, &e
+		return nil, aws.ParseError(body)
 	}
 
 	var j job
@@ -313,18 +288,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.R
 	}
 
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusPartialContent {
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return nil, "", err
-		}
-		response.Body.Close()
-
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return nil, "", err
-		}
-		return nil, "", &e
+		return nil, "", aws.ParseResponseError(response)
 	}
 
 	return response.Body, response.Header.Get("x-amz-sha256-tree-hash"), nil
@@ -363,12 +327,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return nil, err
-		}
-		return nil, &e
+		return nil, aws.ParseError(body)
 	}
 
 	var i struct {
@@ -484,12 +443,7 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return nil, "", err
-		}
-		return nil, "", &e
+		return nil, "", aws.ParseError(body)
 	}
 
 	var jl jobList

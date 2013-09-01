@@ -1,10 +1,8 @@
 package glacier
 
 import (
-	"encoding/json"
 	"github.com/rdwilliamson/aws"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"path"
 )
@@ -47,17 +45,7 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 	}
 
 	if response.StatusCode != http.StatusCreated {
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return "", err
-		}
-		response.Body.Close()
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return "", err
-		}
-		return "", &e
+		return "", aws.ParseResponseError(response)
 	}
 
 	response.Body.Close()
@@ -85,17 +73,7 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 	}
 
 	if response.StatusCode != http.StatusNoContent {
-		body, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			return err
-		}
-		response.Body.Close()
-		var e aws.Error
-		err = json.Unmarshal(body, &e)
-		if err != nil {
-			return err
-		}
-		return &e
+		return aws.ParseResponseError(response)
 	}
 
 	response.Body.Close()
