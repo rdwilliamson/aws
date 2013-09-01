@@ -43,12 +43,11 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 	if err != nil {
 		return "", err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
 		return "", aws.ParseResponseError(response)
 	}
-
-	response.Body.Close()
 
 	_, location := path.Split(response.Header.Get("Location"))
 	return location, nil
@@ -71,12 +70,11 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
 		return aws.ParseResponseError(response)
 	}
-
-	response.Body.Close()
 
 	return nil
 }

@@ -133,12 +133,11 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 	if err != nil {
 		return "", err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusAccepted {
 		return "", aws.ParseResponseError(response)
 	}
-
-	response.Body.Close()
 
 	return response.Header.Get("x-amz-job-id"), nil
 }
@@ -165,12 +164,11 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 	if err != nil {
 		return "", err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusAccepted {
 		return "", aws.ParseResponseError(response)
 	}
-
-	response.Body.Close()
 
 	return response.Header.Get("x-amz-job-id"), nil
 }
@@ -192,12 +190,12 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
-	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, aws.ParseError(body)
@@ -219,13 +217,13 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	result.Completed = j.Completed
 	if j.CompletionDate != nil {
 		result.CompletionDate, err = time.Parse(time.RFC3339, *j.CompletionDate)
-		if err != nil && err1 == nil {
-			err1 = err
+		if err != nil {
+			return nil, err
 		}
 	}
 	result.CreationDate, err = time.Parse(time.RFC3339, j.CreationDate)
-	if err != nil && err1 == nil {
-		err1 = err
+	if err != nil {
+		return nil, err
 	}
 	if j.InventorySizeInBytes != nil {
 		result.InventorySizeInBytes = *j.InventorySizeInBytes
@@ -246,7 +244,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	}
 	result.VaultARN = j.VaultARN
 
-	return &result, err1
+	return &result, nil
 }
 
 // You can download all the job output or download a portion of the output by
@@ -288,7 +286,9 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.R
 	}
 
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusPartialContent {
-		return nil, "", aws.ParseResponseError(response)
+		err := aws.ParseResponseError(response)
+		response.Body.Close()
+		return nil, "", err
 	}
 
 	return response.Body, response.Header.Get("x-amz-sha256-tree-hash"), nil
@@ -319,12 +319,12 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
-	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, aws.ParseError(body)
@@ -357,14 +357,14 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 		result.ArchiveList[j].ArchiveId = v.ArchiveId
 		result.ArchiveList[j].ArchiveDescription = v.ArchiveDescription
 		result.ArchiveList[j].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
-		if err != nil && err1 == nil {
-			err1 = err
+		if err != nil {
+			return nil, err
 		}
 		result.ArchiveList[j].Size = v.Size
 		result.ArchiveList[j].SHA256TreeHash = v.SHA256TreeHash
 	}
 
-	return &result, err1
+	return &result, nil
 }
 
 // This operation lists jobs for a vault including jobs that are in-progress and
@@ -435,12 +435,12 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 	if err != nil {
 		return nil, "", err
 	}
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, "", err
 	}
-	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, "", aws.ParseError(body)
@@ -464,13 +464,13 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 		jobs[i].Completed = v.Completed
 		if v.CompletionDate != nil {
 			jobs[i].CompletionDate, err = time.Parse(time.RFC3339, *v.CompletionDate)
-			if err != nil && err1 == nil {
-				err1 = err
+			if err != nil {
+				return nil, "", err
 			}
 		}
 		jobs[i].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
-		if err != nil && err1 == nil {
-			err1 = err
+		if err != nil {
+			return nil, "", err
 		}
 		if v.InventorySizeInBytes != nil {
 			jobs[i].InventorySizeInBytes = *v.InventorySizeInBytes
@@ -497,5 +497,5 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 		m = *jl.Marker
 	}
 
-	return jobs, m, err1
+	return jobs, m, nil
 }

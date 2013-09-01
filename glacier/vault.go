@@ -68,12 +68,13 @@ func (c *Connection) CreateVault(name string) error {
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
 		return aws.ParseResponseError(response)
 	}
 
-	return response.Body.Close()
+	return nil
 }
 
 // This operation deletes a vault. Amazon Glacier will delete a vault only if
@@ -96,12 +97,13 @@ func (c *Connection) DeleteVault(name string) error {
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
 		return aws.ParseResponseError(response)
 	}
 
-	return response.Body.Close()
+	return nil
 }
 
 // This operation returns information about a vault, including the vault Amazon
@@ -125,12 +127,12 @@ func (c *Connection) DescribeVault(name string) (*Vault, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
-	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, aws.ParseError(body)
@@ -145,12 +147,12 @@ func (c *Connection) DescribeVault(name string) (*Vault, error) {
 	var result Vault
 	result.CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
 	if err != nil {
-		err1 = err
+		return nil, err
 	}
 	if v.LastInventoryDate != nil {
 		result.LastInventoryDate, err = time.Parse(time.RFC3339, *v.LastInventoryDate)
-		if err != nil && err1 == nil {
-			err1 = err
+		if err != nil {
+			return nil, err
 		}
 	}
 	result.NumberOfArchives = v.NumberOfArchives
@@ -158,7 +160,7 @@ func (c *Connection) DescribeVault(name string) (*Vault, error) {
 	result.VaultARN = v.VaultARN
 	result.VaultName = v.VaultName
 
-	return &result, err1
+	return &result, nil
 }
 
 // This operation lists all vaults owned by the calling user’s account. The list
@@ -197,12 +199,12 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 	if err != nil {
 		return nil, "", err
 	}
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, "", err
 	}
-	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, "", aws.ParseError(body)
@@ -220,13 +222,13 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 	result := make([]Vault, len(vaults.VaultList))
 	for i, v := range vaults.VaultList {
 		result[i].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
-		if err != nil && err1 == nil {
-			err1 = err
+		if err != nil {
+			return nil, "", err
 		}
 		if v.LastInventoryDate != nil {
 			result[i].LastInventoryDate, err = time.Parse(time.RFC3339, *v.LastInventoryDate)
-			if err != nil && err1 == nil {
-				err1 = err
+			if err != nil {
+				return nil, "", err
 			}
 		}
 		result[i].NumberOfArchives = v.NumberOfArchives
@@ -240,7 +242,7 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 		resultMarker = *vaults.Marker
 	}
 
-	return result, resultMarker, err1
+	return result, resultMarker, nil
 }
 
 // Retrieving an archive and a vault inventory are asynchronous operations in
@@ -277,12 +279,13 @@ func (c *Connection) SetVaultNotifications(name string, n *Notifications) error 
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
 		return aws.ParseResponseError(response)
 	}
 
-	return response.Body.Close()
+	return nil
 }
 
 // This operation retrieves the notification-configuration subresource set on
@@ -304,12 +307,12 @@ func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) 
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
-	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, aws.ParseError(body)
@@ -320,7 +323,7 @@ func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) 
 		return nil, err
 	}
 
-	return &results, err1
+	return &results, nil
 }
 
 // This operation deletes the notification configuration set for a vault. The
@@ -342,10 +345,11 @@ func (c *Connection) DeleteVaultNotifications(name string) error {
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
 		return aws.ParseResponseError(response)
 	}
 
-	return response.Body.Close()
+	return nil
 }

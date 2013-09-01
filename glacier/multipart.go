@@ -81,12 +81,13 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 	if err != nil {
 		return "", err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
 		return "", aws.ParseResponseError(response)
 	}
 
-	return response.Header.Get("x-amz-multipart-upload-id"), response.Body.Close()
+	return response.Header.Get("x-amz-multipart-upload-id"), nil
 }
 
 // This multipart upload operation uploads a part of an archive.You can upload
@@ -153,12 +154,13 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body 
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
 		return aws.ParseResponseError(response)
 	}
 
-	return response.Body.Close()
+	return nil
 }
 
 // You call this multipart upload operation to inform Amazon Glacier that all
@@ -211,12 +213,13 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size ui
 	if err != nil {
 		return "", err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
 		return "", aws.ParseResponseError(response)
 	}
 
-	return response.Header.Get("x-amz-archive-id"), response.Body.Close()
+	return response.Header.Get("x-amz-archive-id"), nil
 }
 
 // This multipart upload operation aborts a multipart upload identified by the upload ID.
@@ -241,12 +244,13 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 	if err != nil {
 		return err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNoContent {
 		return aws.ParseResponseError(response)
 	}
 
-	return response.Body.Close()
+	return nil
 }
 
 // This multipart upload operation lists the parts of an archive that have been
@@ -287,12 +291,15 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 	c.Signature.Sign(request, nil)
 
 	response, err := c.Client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
 	}
-	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, aws.ParseError(body)
@@ -317,8 +324,8 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 	var result MultipartParts
 	result.ArchiveDescription = list.ArchiveDescription
 	result.CreationDate, err = time.Parse(time.RFC3339, list.CreationDate)
-	if err != nil && err1 == nil {
-		err1 = err
+	if err != nil {
+		return nil, err
 	}
 	if list.Marker != nil {
 		result.Marker = *list.Marker
@@ -328,7 +335,7 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 	result.Parts = list.Parts
 	result.VaultARN = list.VaultARN
 
-	return &result, err1
+	return &result, nil
 }
 
 // This multipart upload operation lists in-progress multipart uploads for the
@@ -373,12 +380,12 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 	if err != nil {
 		return nil, "", err
 	}
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, "", err
 	}
-	err1 := response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, "", aws.ParseError(body)
@@ -405,8 +412,8 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 			parts[i].ArchiveDescription = *v.ArchiveDescription
 		}
 		parts[i].CreationDate, err = time.Parse(time.RFC3339, v.CreationDate)
-		if err != nil && err1 == nil {
-			err1 = err
+		if err != nil {
+			return nil, "", err
 		}
 		parts[i].MultipartUploadId = v.MultipartUploadId
 		parts[i].PartSizeInBytes = v.PartSizeInBytes
@@ -418,5 +425,5 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 		m = *list.Marker
 	}
 
-	return parts, m, err1
+	return parts, m, nil
 }
