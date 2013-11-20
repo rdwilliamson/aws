@@ -181,7 +181,7 @@ func (s *Signature) generateSigningKey(secret string) {
 // If the signature was created on a different UTC day the signing will be
 // invalid.
 // The optional payload allows for various methods to hash the request's body.
-// If no playload is supplied the body is copyed into memory to be hashed.
+// If no payload is supplied the body is copyed into memory to be hashed.
 //
 // Possible errors are an invalid URL query parameters (url.EscapeError), if
 // the date header isn't in time.RFC1123 format (*time.ParseError), or an error
@@ -304,13 +304,16 @@ func (s *Signature) Sign(r *http.Request, payload Payload) error {
 	// or HTTPS request.
 	//
 	if payload == nil {
-		mem, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			return err
-		}
-		err = r.Body.Close()
-		if err != nil {
-			return err
+		var mem []byte
+		if r.Body != nil {
+			mem, err = ioutil.ReadAll(r.Body)
+			if err != nil {
+				return err
+			}
+			err = r.Body.Close()
+			if err != nil {
+				return err
+			}
 		}
 		payload = MemoryPayload(mem)
 	}
