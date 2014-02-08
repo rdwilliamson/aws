@@ -123,7 +123,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 	j := jobRequest{Type: "archive-retrieval", ArchiveId: archive, Description: description, SNSTopic: topic}
 	body, _ := json.Marshal(j)
 
-	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs", nil)
+	request, err := http.NewRequest("POST", c.vault(vault)+"/jobs", nil)
 	if err != nil {
 		return "", err
 	}
@@ -132,7 +132,7 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 	c.Signature.Sign(request, aws.MemoryPayload(body))
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return "", err
 	}
@@ -157,7 +157,7 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 	j := jobRequest{Type: "inventory-retrieval", Description: description, SNSTopic: topic}
 	body, _ := json.Marshal(j)
 
-	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs", nil)
+	request, err := http.NewRequest("POST", c.vault(vault)+"/jobs", nil)
 	if err != nil {
 		return "", err
 	}
@@ -166,7 +166,7 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 	c.Signature.Sign(request, aws.MemoryPayload(body))
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return "", err
 	}
@@ -186,7 +186,7 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 // Returns the job and the first error, if any, encountered.
 func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	// Build request.
-	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+jobId, nil)
+	request, err := http.NewRequest("GET", c.vault(vault)+"/jobs/"+jobId, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +195,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -279,8 +279,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 // archive), then the x-amz-sha256-tree-hash is returned as a response header.
 func (c *Connection) GetRetrievalJob(vault, job string, start, end int64) (io.ReadCloser, string, error) {
 	// Build request.
-	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
-		"/output", nil)
+	request, err := http.NewRequest("GET", c.vault(vault)+"/jobs/"+job+"/output", nil)
 	if err != nil {
 		return nil, "", err
 	}
@@ -292,7 +291,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end int64) (io.Re
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return nil, "", err
 	}
@@ -320,8 +319,7 @@ func (c *Connection) GetRetrievalJob(vault, job string, start, end int64) (io.Re
 // needed, in your database with the actual vault inventory.
 func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 	// Build request.
-	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
-		"/output", nil)
+	request, err := http.NewRequest("GET", c.vault(vault)+"/jobs/"+job+"/output", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +328,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -416,7 +414,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 // the job exists.
 func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit int) ([]Job, string, error) {
 	// Build request.
-	get, err := url.Parse("https://" + c.Signature.Region.Glacier + "/-/vaults/" + vault + "/jobs")
+	get, err := url.Parse(c.vault("/jobs"))
 	if err != nil {
 		return nil, "", err
 	}
@@ -449,7 +447,7 @@ func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return nil, "", err
 	}

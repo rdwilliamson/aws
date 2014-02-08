@@ -14,10 +14,10 @@ func TestTreeHash(t *testing.T) {
 	th := NewTreeHash()
 	th.Write([]byte("Hello World"))
 	th.Close()
-	if result := string(toHex(th.TreeHash())); out1 != result {
+	if result := toHex(th.TreeHash()); out1 != result {
 		t.Fatal("tree hash, wanted:", out1, "got:", result)
 	}
-	if result := string(toHex(th.Hash())); out2 != result {
+	if result := toHex(th.Hash()); out2 != result {
 		t.Fatal("hash of entire file, wanted:", out2, "got:", result)
 	}
 
@@ -28,10 +28,10 @@ func TestTreeHash(t *testing.T) {
 		th.Write([]byte{'a'})
 	}
 	th.Close()
-	if result := string(toHex(th.TreeHash())); out3 != result {
+	if result := toHex(th.TreeHash()); out3 != result {
 		t.Fatal("tree hash, wanted:", out3, "got:", result)
 	}
-	if result := string(toHex(th.Hash())); out4 != result {
+	if result := toHex(th.Hash()); out4 != result {
 		t.Fatal("hash of entire file, wanted:", out4, "got:", result)
 	}
 
@@ -47,10 +47,10 @@ func TestTreeHash(t *testing.T) {
 		t.Fatal("didn't write", 2*MiB, "wrote", n)
 	}
 	th.Close()
-	if result := string(toHex(th.TreeHash())); out5 != result {
+	if result := toHex(th.TreeHash()); out5 != result {
 		t.Fatal("tree hash, wanted:", out5, "got:", result)
 	}
-	if result := string(toHex(th.Hash())); out6 != result {
+	if result := toHex(th.Hash()); out6 != result {
 		t.Fatal("hash of entire file, wanted:", out6, "got:", result)
 	}
 }
