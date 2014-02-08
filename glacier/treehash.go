@@ -2,25 +2,14 @@ package glacier
 
 import (
 	"crypto/sha256"
-	"github.com/rdwilliamson/snippets"
 	"hash"
 	"io"
-	"os/exec"
-)
-
-var (
-	externalHasher bool
 )
 
 type treeHashNode struct {
 	hash  [sha256.Size]byte
 	left  *treeHashNode
 	right *treeHashNode
-}
-
-func init() {
-	_, err := exec.LookPath("sha256sum")
-	externalHasher = err == nil
 }
 
 // TreeHash is used to calculate the tree hash and regular sha256 hash of the
@@ -41,20 +30,8 @@ type TreeHash struct {
 // Creates a new tree hasher.
 func NewTreeHash() *TreeHash {
 	var result TreeHash
-	if externalHasher {
-		var err error
-		result.whole, err = snippets.NewSha256()
-		if err != nil {
-			panic(err)
-		}
-		result.part, err = snippets.NewSha256()
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		result.whole = sha256.New()
-		result.part = sha256.New()
-	}
+	result.whole = sha256.New()
+	result.part = sha256.New()
 	result.hashers = io.MultiWriter(result.whole, result.part)
 	result.nodes = make([]treeHashNode, 0)
 	return &result
