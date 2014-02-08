@@ -67,7 +67,7 @@ func (c *Connection) CreateVault(name string) error {
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (c *Connection) DeleteVault(name string) error {
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (c *Connection) DescribeVault(name string) (*Vault, error) {
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, erro
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return nil, "", err
 	}
@@ -290,7 +290,7 @@ func (c *Connection) SetVaultNotifications(name string, n *Notifications) error 
 	c.Signature.Sign(request, aws.MemoryPayload(body))
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return err
 	}
@@ -321,7 +321,7 @@ func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) 
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +362,7 @@ func (c *Connection) DeleteVaultNotifications(name string) error {
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return err
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/rdwilliamson/aws"
 )
 
-// Multipart contains all relivant data for a multipart upload.
+// Multipart contains all relevant data for a multipart upload.
 type Multipart struct {
 	ArchiveDescription string
 	CreationDate       time.Time
@@ -20,14 +20,18 @@ type Multipart struct {
 	VaultARN           string
 }
 
-// MultipartPart contains all relivant data for a part of a multipart uploads.
+// MultipartPart contains the range and hash of part of an upload.
 type MultipartPart struct {
 	RangeInBytes   string
 	SHA256TreeHash string
 }
 
-// MultipartParts contains contains all relivant data for a multipart upload.
+// MultipartParts contains contains all relevant data for a multipart upload.
 type MultipartParts struct {
+	// TODO: document this and all three of these structs
+	// better. All three can't be "all relevant data for
+	// multipart", otherwise there would only be one of them.
+
 	ArchiveDescription string
 	CreationDate       time.Time
 	Marker             string
@@ -80,7 +84,7 @@ func (c *Connection) InitiateMultipart(vault string, size int64, description str
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return "", err
 	}
@@ -148,15 +152,15 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body i
 
 	hash := th.Hash()
 
-	request.Header.Add("x-amz-content-sha256", string(toHex(hash)))
-	request.Header.Add("x-amz-sha256-tree-hash", string(toHex(th.TreeHash())))
+	request.Header.Add("x-amz-content-sha256", toHex(hash))
+	request.Header.Add("x-amz-sha256-tree-hash", toHex(th.TreeHash()))
 	request.Header.Add("Content-Range", fmt.Sprintf("bytes %d-%d/*", start, start+n-1))
 	request.ContentLength = n
 
 	c.Signature.Sign(request, aws.HashedPayload(hash))
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return err
 	}
@@ -218,7 +222,7 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size in
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return "", err
 	}
@@ -252,7 +256,7 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return err
 	}
@@ -305,7 +309,7 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +396,7 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 	c.Signature.Sign(request, nil)
 
 	// Perform request.
-	response, err := c.Client.Do(request)
+	response, err := c.client().Do(request)
 	if err != nil {
 		return nil, "", err
 	}
