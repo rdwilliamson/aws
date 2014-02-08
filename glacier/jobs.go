@@ -3,12 +3,13 @@ package glacier
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/rdwilliamson/aws"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/rdwilliamson/aws"
 )
 
 type jobRequest struct {
@@ -31,7 +32,7 @@ type Archive struct {
 	ArchiveId          string
 	ArchiveDescription string
 	CreationDate       time.Time
-	Size               uint64
+	Size               int64
 	SHA256TreeHash     string
 }
 
@@ -74,11 +75,11 @@ type Inventory struct {
 type Job struct {
 	Action               string
 	ArchiveId            string
-	ArchiveSizeInBytes   uint64
+	ArchiveSizeInBytes   int64
 	Completed            bool
 	CompletionDate       time.Time
 	CreationDate         time.Time
-	InventorySizeInBytes uint
+	InventorySizeInBytes int
 	JobDescription       string
 	JobId                string
 	SHA256TreeHash       string
@@ -96,11 +97,11 @@ type jobList struct {
 type job struct {
 	Action               string
 	ArchiveId            *string
-	ArchiveSizeInBytes   *uint64
+	ArchiveSizeInBytes   *int64
 	Completed            bool
 	CompletionDate       *string
 	CreationDate         string
-	InventorySizeInBytes *uint
+	InventorySizeInBytes *int
 	JobDescription       *string
 	JobId                string
 	SHA256TreeHash       *string
@@ -276,7 +277,7 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 // end of the archive. For example, if you have a 3.1 MB archive and you
 // specify a range that starts at 2 MB and ends at 3.1 MB (the end of the
 // archive), then the x-amz-sha256-tree-hash is returned as a response header.
-func (c *Connection) GetRetrievalJob(vault, job string, start, end uint64) (io.ReadCloser, string, error) {
+func (c *Connection) GetRetrievalJob(vault, job string, start, end int64) (io.ReadCloser, string, error) {
 	// Build request.
 	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+"/jobs/"+job+
 		"/output", nil)
@@ -352,7 +353,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 			ArchiveId          string
 			ArchiveDescription string
 			CreationDate       string
-			Size               uint64
+			Size               int64
 			SHA256TreeHash     string
 		}
 	}

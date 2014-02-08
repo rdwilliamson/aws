@@ -3,11 +3,12 @@ package glacier
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/rdwilliamson/aws"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/rdwilliamson/aws"
 )
 
 // Multipart contains all relivant data for a multipart upload.
@@ -15,7 +16,7 @@ type Multipart struct {
 	ArchiveDescription string
 	CreationDate       time.Time
 	MultipartUploadId  string
-	PartSizeInBytes    uint
+	PartSizeInBytes    int64
 	VaultARN           string
 }
 
@@ -31,7 +32,7 @@ type MultipartParts struct {
 	CreationDate       time.Time
 	Marker             string
 	MultipartUploadId  string
-	PartSizeInBytes    uint
+	PartSizeInBytes    int64
 	Parts              []MultipartPart
 	VaultARN           string
 }
@@ -60,7 +61,7 @@ type MultipartParts struct {
 // Note: You don't need to know the size of the archive when you start a
 // multipart upload because Amazon Glacier does not require you to specify the
 // overall archive size.
-func (c *Connection) InitiateMultipart(vault string, size uint, description string) (string, error) {
+func (c *Connection) InitiateMultipart(vault string, size int64, description string) (string, error) {
 	// Build request.
 	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
 		"/multipart-uploads", nil)
@@ -122,7 +123,7 @@ func (c *Connection) InitiateMultipart(vault string, size uint, description stri
 // This operation is idempotent. If you upload the same part multiple times, the
 // data included in the most recent request overwrites the previously uploaded
 // data.
-func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body io.ReadSeeker) error {
+func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body io.ReadSeeker) error {
 	// TODO check that data size and start location make sense
 
 	// Build request.
@@ -149,7 +150,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body 
 
 	request.Header.Add("x-amz-content-sha256", string(toHex(hash)))
 	request.Header.Add("x-amz-sha256-tree-hash", string(toHex(th.TreeHash())))
-	request.Header.Add("Content-Range", fmt.Sprintf("bytes %d-%d/*", start, start+uint64(n)-1))
+	request.Header.Add("Content-Range", fmt.Sprintf("bytes %d-%d/*", start, start+n-1))
 	request.ContentLength = n
 
 	c.Signature.Sign(request, aws.HashedPayload(hash))
@@ -202,7 +203,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start uint64, body 
 // upload completes, you cannot call the List Parts operation and the multipart
 // upload will not appear in List Multipart Uploads response, even if idempotent
 // complete is possible.
-func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size uint64) (string, error) {
+func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size int64) (string, error) {
 	// Build request.
 	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
 		"/multipart-uploads/"+uploadId, nil)
@@ -325,7 +326,7 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 		CreationDate       string
 		Marker             *string
 		MultipartUploadId  string
-		PartSizeInBytes    uint
+		PartSizeInBytes    int64
 		Parts              []MultipartPart
 		VaultARN           string
 	}
@@ -413,7 +414,7 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 			ArchiveDescription *string
 			CreationDate       string
 			MultipartUploadId  string
-			PartSizeInBytes    uint
+			PartSizeInBytes    int64
 			VaultARN           string
 		}
 	}

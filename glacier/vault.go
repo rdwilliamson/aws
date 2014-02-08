@@ -3,10 +3,11 @@ package glacier
 import (
 	"encoding/json"
 	"errors"
-	"github.com/rdwilliamson/aws"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/rdwilliamson/aws"
 )
 
 // A vault is a container for storing archives. You can store an unlimited
@@ -14,8 +15,8 @@ import (
 type Vault struct {
 	CreationDate      time.Time
 	LastInventoryDate time.Time
-	NumberOfArchives  uint
-	SizeInBytes       uint64
+	NumberOfArchives  int
+	SizeInBytes       int64
 	VaultARN          string
 	VaultName         string
 }
@@ -24,8 +25,8 @@ type Vault struct {
 type vault struct {
 	CreationDate      string
 	LastInventoryDate *string
-	NumberOfArchives  uint
-	SizeInBytes       uint64
+	NumberOfArchives  int
+	SizeInBytes       int64
 	VaultARN          string
 	VaultName         string
 }
