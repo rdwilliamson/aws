@@ -156,6 +156,9 @@ func (th *TreeHash) Close() error {
 
 // Returns the tree hash of everything written.
 func (th *TreeHash) TreeHash() []byte {
+	if th.nodes == nil {
+		return nil
+	}
 	return th.nodes[len(th.nodes)-1].hash[:]
 }
 
