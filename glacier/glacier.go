@@ -2,8 +2,9 @@ package glacier
 
 import (
 	"encoding/hex"
-	"github.com/rdwilliamson/aws"
 	"net/http"
+
+	"github.com/rdwilliamson/aws"
 )
 
 var (

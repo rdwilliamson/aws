@@ -1,10 +1,11 @@
 package glacier
 
 import (
-	"github.com/rdwilliamson/aws"
 	"io"
 	"net/http"
 	"path"
+
+	"github.com/rdwilliamson/aws"
 )
 
 // Upload archive to vault with optional description. The entire archive will
