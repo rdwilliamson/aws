@@ -414,7 +414,7 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 // the job exists.
 func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit int) ([]Job, string, error) {
 	// Build request.
-	get, err := url.Parse(c.vault(vault)+"/jobs"))
+	get, err := url.Parse(c.vault(vault) + "/jobs")
 	if err != nil {
 		return nil, "", err
 	}
