@@ -453,16 +453,10 @@ type readSeekerPayload struct {
 	rs io.ReadSeeker
 }
 
-// General form of the file payload.
+// Returns a payload that reads the ReadSeeker to hash it and then reads it
+// again when sending the request.
 func ReadSeekerPayload(rs io.ReadSeeker) Payload {
 	return &readSeekerPayload{rs}
-}
-
-// Returns a payload that reads the file to hash it and then reads it again
-// when sending the request. It is the caller's responsibility to close the file
-// once the request is sent.
-func FilePayload(f *os.File) Payload {
-	return &readSeekerPayload{f}
 }
 
 func (v *readSeekerPayload) Payload() (io.ReadCloser, []byte, error) {
