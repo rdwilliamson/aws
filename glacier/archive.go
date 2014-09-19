@@ -47,6 +47,7 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 		return "", err
 	}
 	defer response.Body.Close()
+	io.Copy(ioutil.Discard, response.Body)
 
 	if response.StatusCode != http.StatusCreated {
 		return "", aws.ParseError(response)
