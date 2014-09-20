@@ -94,6 +94,8 @@ func (c *Connection) InitiateMultipart(vault string, size int64, description str
 		return "", aws.ParseError(response)
 	}
 
+	io.Copy(ioutil.Discard, response.Body)
+
 	// Parse success response.
 	return response.Header.Get("x-amz-multipart-upload-id"), nil
 }
@@ -170,6 +172,8 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body i
 		return aws.ParseError(response)
 	}
 
+	io.Copy(ioutil.Discard, response.Body)
+
 	// Parse success response.
 	return nil
 }
@@ -232,6 +236,8 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size in
 		return "", aws.ParseError(response)
 	}
 
+	io.Copy(ioutil.Discard, response.Body)
+
 	// Parse success response.
 	return response.Header.Get("x-amz-archive-id"), nil
 }
@@ -265,6 +271,8 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 	if response.StatusCode != http.StatusNoContent {
 		return aws.ParseError(response)
 	}
+
+	io.Copy(ioutil.Discard, response.Body)
 
 	// Parse success response.
 	return nil

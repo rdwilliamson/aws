@@ -3,6 +3,7 @@ package glacier
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -77,6 +78,8 @@ func (c *Connection) CreateVault(name string) error {
 		return aws.ParseError(response)
 	}
 
+	io.Copy(ioutil.Discard, response.Body)
+
 	// Parse success response.
 	return nil
 }
@@ -108,6 +111,8 @@ func (c *Connection) DeleteVault(name string) error {
 	if response.StatusCode != http.StatusNoContent {
 		return aws.ParseError(response)
 	}
+
+	io.Copy(ioutil.Discard, response.Body)
 
 	// Parse success response.
 	return nil
@@ -300,6 +305,8 @@ func (c *Connection) SetVaultNotifications(name string, n *Notifications) error 
 		return aws.ParseError(response)
 	}
 
+	io.Copy(ioutil.Discard, response.Body)
+
 	// Parse success response.
 	return nil
 }
@@ -371,6 +378,8 @@ func (c *Connection) DeleteVaultNotifications(name string) error {
 	if response.StatusCode != http.StatusNoContent {
 		return aws.ParseError(response)
 	}
+
+	io.Copy(ioutil.Discard, response.Body)
 
 	// Parse success response.
 	return nil
