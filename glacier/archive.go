@@ -2,6 +2,7 @@ package glacier
 
 import (
 	"io"
+	"io/ioutil"
 	"net/http"
 	"path"
 
@@ -47,11 +48,12 @@ func (c *Connection) UploadArchive(vault string, archive io.ReadSeeker, descript
 		return "", err
 	}
 	defer response.Body.Close()
-	io.Copy(ioutil.Discard, response.Body)
 
 	if response.StatusCode != http.StatusCreated {
 		return "", aws.ParseError(response)
 	}
+
+	io.Copy(ioutil.Discard, response.Body)
 
 	// Parse success response.
 	_, location := path.Split(response.Header.Get("Location"))
@@ -81,6 +83,8 @@ func (c *Connection) DeleteArchive(vault, archive string) error {
 	if response.StatusCode != http.StatusNoContent {
 		return aws.ParseError(response)
 	}
+
+	io.Copy(ioutil.Discard, response.Body)
 
 	// Parse success response.
 	return nil

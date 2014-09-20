@@ -142,6 +142,8 @@ func (c *Connection) InitiateRetrievalJob(vault, archive, topic, description str
 		return "", aws.ParseError(response)
 	}
 
+	io.Copy(ioutil.Discard, response.Body)
+
 	// Parse success response.
 	return response.Header.Get("x-amz-job-id"), nil
 }
@@ -175,6 +177,8 @@ func (c *Connection) InitiateInventoryJob(vault, topic, description string) (str
 	if response.StatusCode != http.StatusAccepted {
 		return "", aws.ParseError(response)
 	}
+
+	io.Copy(ioutil.Discard, response.Body)
 
 	// Parse success response.
 	return response.Header.Get("x-amz-job-id"), nil
@@ -277,6 +281,11 @@ func (c *Connection) DescribeJob(vault, jobId string) (*Job, error) {
 // end of the archive. For example, if you have a 3.1 MB archive and you
 // specify a range that starts at 2 MB and ends at 3.1 MB (the end of the
 // archive), then the x-amz-sha256-tree-hash is returned as a response header.
+//
+// Make sure to fully consume the returned `io.ReadCloser`, otherwise `http.Client`
+// won't be able to re-use the connection for a new request to AWS Glacier. If you
+// are not interested in its contents, just do `ioutil.Copy(ioutil.Discard, response)`,
+// where `response` is the `io.ReadCloser` retrieved from this function.
 func (c *Connection) GetRetrievalJob(vault, job string, start, end int64) (io.ReadCloser, string, error) {
 	// Build request.
 	request, err := http.NewRequest("GET", c.vault(vault)+"/jobs/"+job+"/output", nil)
