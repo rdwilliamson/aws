@@ -25,6 +25,10 @@ var (
 		"EU (Ireland)",
 		"eu-west-1",
 		"glacier.eu-west-1.amazonaws.com"}
+	EU2 = &Region{
+		"EU (Frankfurt)",
+		"eu-central-1",
+		"glacier.eu-central-1.amazonaws.com"}
 	AsiaPacific1 = &Region{
 		"Asia Pacific (Tokyo)",
 		"ap-northeast-1",
