@@ -119,7 +119,7 @@ func TestSignature(t *testing.T) {
 	signature := &Signature{
 		access,
 		date.Format(ISO8601BasicFormatShort),
-		USEast,
+		USEast1,
 		"host",
 		[sha256.Size]byte{},
 		nil,
@@ -176,7 +176,7 @@ func BenchmarkNewSignature(b *testing.B) {
 	secret := "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
 	access := "AKIDEXAMPLE"
 	for i := 0; i < b.N; i++ {
-		_ = NewSignature(secret, access, USEast, "service")
+		_ = NewSignature(secret, access, USEast1, "service")
 	}
 }
 
@@ -184,7 +184,7 @@ func BenchmarkSignatureSign(b *testing.B) {
 	b.StopTimer()
 	secret := "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
 	access := "AKIDEXAMPLE"
-	signature := NewSignature(secret, access, USEast, "service")
+	signature := NewSignature(secret, access, USEast1, "service")
 	b.StartTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -214,7 +214,7 @@ foo=bar`)
 func TestSignErrors(t *testing.T) {
 	secret := "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"
 	access := "AKIDEXAMPLE"
-	signature := NewSignature(secret, access, USEast, "service")
+	signature := NewSignature(secret, access, USEast1, "service")
 	rawRequest := []byte(`POST / HTTP/1.1
 Content-Type:application/x-www-form-urlencoded
 Date:a
