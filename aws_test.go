@@ -248,7 +248,7 @@ foo=bar`)
 }
 
 func TestKeysFromFile(t *testing.T) {
-	name := os.TempDir() + string(filepath.Separator) + "aws_keys_test"
+	name := filepath.Join(os.TempDir(), "aws_keys_test")
 	tests := []string{
 		`secret access`,
 		`secret  access`,
