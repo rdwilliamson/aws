@@ -151,3 +151,8 @@ func (th *TreeHash) Reset() {
 	th.written = 0
 	th.nodes = th.nodes[:0]
 }
+
+// Add appends hash to the treehash as a new node
+func (th *TreeHash) Add(hash [sha256.Size]byte) {
+	th.nodes = append(th.nodes, treeHashNode{hash: hash})
+}

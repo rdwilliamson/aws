@@ -211,6 +211,8 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body i
 // upload completes, you cannot call the List Parts operation and the multipart
 // upload will not appear in List Multipart Uploads response, even if idempotent
 // complete is possible.
+//
+// Note: treeHash must be a hex-encoded string.
 func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size int64) (string, error) {
 	// Build request.
 	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
