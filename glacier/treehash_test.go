@@ -4,54 +4,67 @@ import (
 	"testing"
 )
 
-const (
-	MiB = 1024 * 1024
-)
+type thTestCase struct {
+	treeHash    string
+	linearHash  string
+	iterations  int
+	dataPerIter string
+}
 
 func TestTreeHash(t *testing.T) {
-	out1 := "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e"
-	out2 := "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e"
+	testCases := []thTestCase{
+		thTestCase{
+			treeHash:    "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e",
+			linearHash:  "a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e",
+			iterations:  1,
+			dataPerIter: "Hello World",
+		},
+		thTestCase{
+			treeHash:    "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360",
+			linearHash:  "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360",
+			iterations:  1 << 20,
+			dataPerIter: "a",
+		},
+		thTestCase{
+			treeHash:    "560c2c9333c719cb00cfdffee3ba293db17f58743cdd1f7e4055373ae6300afa",
+			linearHash:  "5256ec18f11624025905d057d6befb03d77b243511ac5f77ed5e0221ce6d84b5",
+			iterations:  2 << 20,
+			dataPerIter: "a",
+		},
+		thTestCase{
+			treeHash:    "70239f4f2ead7561f69d48b956b547edef52a1280a93c262c0b582190be7db17",
+			linearHash:  "6f850bc94ae6f7de14297c01616c36d712d22864497b28a63b81d776b035e656",
+			iterations:  3 << 20,
+			dataPerIter: "a",
+		},
+		thTestCase{
+			treeHash:    "daede4eb580f914dacd5e0bdf7015c937fd615c1e6c6552d25cb04a8b7219828",
+			linearHash:  "34c8bdd269f89a091cf17d5d23503940e0abf61c4b6544e42854b9af437f31bb",
+			iterations:  3<<20 + 1<<19,
+			dataPerIter: "a",
+		},
+	}
+
 	th := NewTreeHash()
-	th.Write([]byte("Hello World"))
-	th.Close()
-	if result := toHex(th.TreeHash()); out1 != result {
-		t.Fatal("tree hash, wanted:", out1, "got:", result)
-	}
-	if result := toHex(th.Hash()); out2 != result {
-		t.Fatal("hash of entire file, wanted:", out2, "got:", result)
-	}
-
-	out3 := "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360"
-	out4 := "9bc1b2a288b26af7257a36277ae3816a7d4f16e89c1e7e77d0a5c48bad62b360"
-	th.Reset()
-	for i := 0; i < MiB; i++ {
-		th.Write([]byte{'a'})
-	}
-	th.Close()
-	if result := toHex(th.TreeHash()); out3 != result {
-		t.Fatal("tree hash, wanted:", out3, "got:", result)
-	}
-	if result := toHex(th.Hash()); out4 != result {
-		t.Fatal("hash of entire file, wanted:", out4, "got:", result)
-	}
-
-	out5 := "560c2c9333c719cb00cfdffee3ba293db17f58743cdd1f7e4055373ae6300afa"
-	out6 := "5256ec18f11624025905d057d6befb03d77b243511ac5f77ed5e0221ce6d84b5"
-	th.Reset()
-	data := make([]byte, 2*MiB)
-	for i := range data {
-		data[i] = 'a'
-	}
-	n, _ := th.Write(data)
-	if n != len(data) {
-		t.Fatal("didn't write", 2*MiB, "wrote", n)
-	}
-	th.Close()
-	if result := toHex(th.TreeHash()); out5 != result {
-		t.Fatal("tree hash, wanted:", out5, "got:", result)
-	}
-	if result := toHex(th.Hash()); out6 != result {
-		t.Fatal("hash of entire file, wanted:", out6, "got:", result)
+	for _, testCase := range testCases {
+		th.Reset()
+		written := 0
+		nDataPerIteration := len([]byte(testCase.dataPerIter))
+		toBeWritten := testCase.iterations * nDataPerIteration
+		for i := 0; i < testCase.iterations; i++ {
+			n, _ := th.Write([]byte(testCase.dataPerIter))
+			written += n
+		}
+		if written != toBeWritten {
+			t.Fatal("didn't write", toBeWritten, "wrote", written)
+		}
+		th.Close()
+		if result := toHex(th.TreeHash()); testCase.treeHash != result {
+			t.Fatal("tree hash, wanted:", testCase.treeHash, "got:", result)
+		}
+		if result := toHex(th.Hash()); testCase.linearHash != result {
+			t.Fatal("hash of entire file, wanted:", testCase.linearHash, "got:", result)
+		}
 	}
 }
 
