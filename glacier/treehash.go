@@ -2,14 +2,59 @@ package glacier
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"hash"
-	"io"
 )
 
-type treeHashNode struct {
-	hash  [sha256.Size]byte
-	left  *treeHashNode
-	right *treeHashNode
+// MultiTreeHasher is used to calculate tree hashes for multi-part uploads
+// Call Add sequentially on hashes you have calculated them for
+// parts individually, and CreateHash to get the resulting root-level
+// hash to use in a CompleteMultipart request.
+type MultiTreeHasher struct {
+	nodes [][sha256.Size]byte
+}
+
+// Add appends the hex-encoded hash to the treehash as a new node
+// Add must be called sequentially on parts.
+func (t *MultiTreeHasher) Add(hash string) {
+	var b [sha256.Size]byte
+	hex.Decode(b[:], []byte(hash))
+	t.nodes = append(t.nodes, b)
+}
+
+// CreateHash returns the root-level hex-encoded hash to send in the
+// CompleteMultipart request.
+func (t *MultiTreeHasher) CreateHash() string {
+	if len(t.nodes) == 0 {
+		return ""
+	}
+	rootHash := treeHash(t.nodes)
+	return hex.EncodeToString(rootHash[:])
+}
+
+// treeHash calculates the root-level treeHash given sequential
+// leaf nodes.
+func treeHash(nodes [][sha256.Size]byte) [sha256.Size]byte {
+	curLevel := make([][sha256.Size]byte, len(nodes))
+	copy(curLevel, nodes)
+	for len(curLevel) > 1 {
+		nextLevel := make([][sha256.Size]byte, 0)
+		for i := 0; i < len(curLevel); i++ {
+			if i%2 == 1 { // Concat with previous node and promote
+				var sum [sha256.Size * 2]byte
+				copy(sum[:sha256.Size], curLevel[i-1][:])
+				copy(sum[sha256.Size:], curLevel[i][:])
+				concat := sha256.Sum256(sum[:])
+				nextLevel = append(nextLevel, concat)
+				continue
+			}
+			if i == len(curLevel)-1 { // Promote last node in an odd-length level
+				nextLevel = append(nextLevel, curLevel[i])
+			}
+		}
+		curLevel = nextLevel
+	}
+	return curLevel[0]
 }
 
 // TreeHash is used to calculate the tree hash and regular sha256 hash of the
@@ -20,139 +65,67 @@ type treeHashNode struct {
 // step is repeated until there is only a single node, this is the tree hash.
 // See docs.aws.amazon.com/amazonglacier/latest/dev/checksum-calculations.html
 type TreeHash struct {
-	whole   hash.Hash
-	part    hash.Hash
-	hashers io.Writer
-	nodes   []treeHashNode
-	written int
+	nodes       [][sha256.Size]byte
+	remaining   []byte
+	runningHash hash.Hash         // linear
+	treeHash    [sha256.Size]byte // computed
+	linearHash  []byte            //computed
 }
 
-// Creates a new tree hasher.
+// NewTreeHash returns an new, initialized tree hasher.
 func NewTreeHash() *TreeHash {
-	var result TreeHash
-	result.whole = sha256.New()
-	result.part = sha256.New()
-	result.hashers = io.MultiWriter(result.whole, result.part)
-	result.nodes = make([]treeHashNode, 0)
-	return &result
+	result := &TreeHash{}
+	result.reset()
+	return result
 }
 
-// Hashes the written data, storing every 1 MiB of data's hash.
+// Reset the tree hash's state allowing it to be reused.
+func (th *TreeHash) Reset() {
+	th.reset()
+}
+
+func (th *TreeHash) reset() {
+	th.runningHash = sha256.New()
+	th.remaining = make([]byte, 0)
+	th.nodes = make([][sha256.Size]byte, 0)
+	th.treeHash = [sha256.Size]byte{}
+	th.linearHash = make([]byte, 0)
+}
+
+// Write writes all of p, storing every 1 MiB of data's hash.
 func (th *TreeHash) Write(p []byte) (n int, err error) {
-	// check if we can't fill up remaining chunk
-	if len(p) < 1024*1024-th.written {
-		n, _ = th.hashers.Write(p)
-		th.written += n
-		return
+	n = len(p)
+	th.remaining = append(th.remaining, p...)
+
+	// Append one-megabyte increments to the hashes.
+	for len(th.remaining) >= (1 << 20) {
+		th.nodes = append(th.nodes, sha256.Sum256(th.remaining[:1<<20]))
+		th.runningHash.Write(th.remaining[:1<<20])
+		th.remaining = th.remaining[1<<20:]
 	}
-
-	// fill remaining chunk
-	th.written, _ = th.hashers.Write(p[:1024*1024-th.written])
-	n += th.written
-	p = p[th.written:]
-	th.nodes = append(th.nodes, treeHashNode{})
-	th.part.Sum(th.nodes[len(th.nodes)-1].hash[:0])
-	th.part.Reset()
-	th.written = 0
-
-	// write all full chunks
-	for len(p) > 1024*1024 {
-		th.written, _ = th.hashers.Write(p[:1024*1024-th.written])
-		n += th.written
-		p = p[th.written:]
-		th.nodes = append(th.nodes, treeHashNode{})
-		th.part.Sum(th.nodes[len(th.nodes)-1].hash[:0])
-		th.part.Reset()
-	}
-
-	// write remaining
-	th.written, _ = th.hashers.Write(p)
-	n += th.written
-
 	return
 }
 
-// Hashes the remaing chunk of data and then calculates the tree hash.
+// Close closes the the remaing chunks of data and then calculates the tree hash.
 func (th *TreeHash) Close() error {
-	// create last node
-	if th.written > 0 {
-		th.nodes = append(th.nodes, treeHashNode{})
-		th.part.Sum(th.nodes[len(th.nodes)-1].hash[:0])
-		th.part.Reset()
+	// create last node; it is impossible that it has a size > 1 MB
+	if len(th.remaining) > 0 {
+		th.nodes = append(th.nodes, sha256.Sum256(th.remaining))
+		th.runningHash.Write(th.remaining)
+		th.remaining = make([]byte, 0)
 	}
-
-	// create tree
-	outIndex := len(th.nodes)
-	childIndex := 0
-	added := outIndex
-	var remainder *treeHashNode
-	for added > 1 || remainder != nil {
-		children := added
-		added = 0
-		// pair up
-		for children > 1 {
-			th.nodes = append(th.nodes, treeHashNode{})
-			th.nodes[outIndex].left = &th.nodes[childIndex]
-			th.nodes[outIndex].right = &th.nodes[childIndex+1]
-			th.part.Write(th.nodes[childIndex].hash[:])
-			th.part.Write(th.nodes[childIndex+1].hash[:])
-			th.part.Sum(th.nodes[outIndex].hash[:0])
-			th.part.Reset()
-
-			outIndex++
-			children -= 2
-			childIndex += 2
-			added++
-		}
-		if children == 1 {
-			// have a child that couldn't be paired up
-			if remainder == nil {
-				// hold on to child as remainder for later
-				remainder = &th.nodes[childIndex]
-				childIndex++
-			} else {
-				// join with existing remainder
-				th.nodes = append(th.nodes, treeHashNode{})
-				th.nodes[outIndex].left = &th.nodes[childIndex]
-				th.nodes[outIndex].right = remainder
-				th.part.Write(th.nodes[childIndex].hash[:])
-				th.part.Write(remainder.hash[:])
-				th.part.Sum(th.nodes[outIndex].hash[:0])
-				th.part.Reset()
-
-				outIndex++
-				remainder = nil
-				childIndex++
-				added++
-			}
-		}
-	}
-
+	// Calculate the tree and linear hashes
+	th.treeHash = treeHash(th.nodes)
+	th.linearHash = th.runningHash.Sum(nil)
 	return nil
 }
 
-// Returns the tree hash of everything written.
+// TreeHash returns the root-level tree hash of everything written.
 func (th *TreeHash) TreeHash() []byte {
-	if th.nodes == nil {
-		return nil
-	}
-	return th.nodes[len(th.nodes)-1].hash[:]
+	return th.treeHash[:]
 }
 
-// Returns the hex string hash of everything written.
+// Hash returns the linear sha256 checksum of everything written.
 func (th *TreeHash) Hash() []byte {
-	return th.whole.Sum(nil)
-}
-
-// Clears the tree hash's state allowing it to be reused.
-func (th *TreeHash) Reset() {
-	th.whole.Reset()
-	th.part.Reset()
-	th.written = 0
-	th.nodes = th.nodes[:0]
-}
-
-// Add appends hash to the treehash as a new node
-func (th *TreeHash) Add(hash [sha256.Size]byte) {
-	th.nodes = append(th.nodes, treeHashNode{hash: hash})
+	return th.linearHash[:]
 }
