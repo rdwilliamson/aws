@@ -301,20 +301,28 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 // the limit parameter in the request.
 func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit int) (*MultipartParts, error) {
 	// Build request.
-	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
-		"/multipart-uploads/"+uploadId, nil)
+	url := fmt.Sprintf("https://%s/-/vaults/%s/multipart-uploads/%s",
+		c.Signature.Region.Glacier, vault, uploadId)
+
+	// TODO validate limit
+	var addedLimit bool
+	if limit > 0 {
+		addedLimit = true
+		url += fmt.Sprintf("?limit=%d", limit)
+	}
+	if marker != "" {
+		if addedLimit {
+			url += fmt.Sprintf("&marker=%s", marker)
+		} else {
+			url += fmt.Sprintf("?marker=%s", marker)
+		}
+	}
+
+	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
-
-	// TODO validate limit
-	if limit > 0 {
-		request.Header.Add("limit", fmt.Sprint(limit))
-	}
-	if marker != "" {
-		request.Header.Add("marker", marker)
-	}
 
 	c.Signature.Sign(request, nil)
 
