@@ -115,7 +115,9 @@ func (th *TreeHash) Close() error {
 		th.remaining = make([]byte, 0)
 	}
 	// Calculate the tree and linear hashes
-	th.treeHash = treeHash(th.nodes)
+	if len(th.nodes) > 0 {
+		th.treeHash = treeHash(th.nodes)
+	}
 	th.linearHash = th.runningHash.Sum(nil)
 	return nil
 }

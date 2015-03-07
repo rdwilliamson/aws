@@ -121,6 +121,14 @@ func TestTreeHash(t *testing.T) {
 	}
 }
 
+func TestTreeHashCloseEmpty(t *testing.T) {
+	th := NewTreeHash()
+	err := th.Close()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func BenchmarkTreeHash(b *testing.B) {
 	b.StopTimer()
 	data := make([]byte, 1024)
