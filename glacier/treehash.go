@@ -75,16 +75,12 @@ type TreeHash struct {
 // NewTreeHash returns an new, initialized tree hasher.
 func NewTreeHash() *TreeHash {
 	result := &TreeHash{}
-	result.reset()
+	result.Reset()
 	return result
 }
 
 // Reset the tree hash's state allowing it to be reused.
 func (th *TreeHash) Reset() {
-	th.reset()
-}
-
-func (th *TreeHash) reset() {
 	th.runningHash = sha256.New()
 	th.remaining = make([]byte, 0)
 	th.nodes = make([][sha256.Size]byte, 0)
