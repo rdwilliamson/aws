@@ -466,3 +466,25 @@ func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Mu
 
 	return parts, m, nil
 }
+
+// TreeHashFromMultipartUpload lists the underlying parts
+// and returns a hex-formatted treehash of the entire archive,
+// for use in sending along with a CompleteMultipart request.
+func (c *Connection) TreeHashFromMultipartUpload(vault, uploadID string) (string, error) {
+	marker := ""
+	m := MultiTreeHasher{}
+	for {
+		parts, err := c.ListMultipartParts(vault, uploadID, marker, 0)
+		if err != nil {
+			return "", err
+		}
+		for _, v := range parts.Parts {
+			m.Add(v.SHA256TreeHash)
+		}
+		if parts.Marker == "" {
+			break
+		}
+		marker = parts.Marker
+	}
+	return m.CreateHash(), nil
+}
