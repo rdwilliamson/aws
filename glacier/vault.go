@@ -2,10 +2,10 @@ package glacier
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/rdwilliamson/aws"
@@ -59,7 +59,7 @@ type Notifications struct {
 // specified vault.
 func (c *Connection) CreateVault(name string) error {
 	// Build request.
-	request, err := http.NewRequest("PUT", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
+	request, err := http.NewRequest("PUT", c.vault(name), nil)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (c *Connection) CreateVault(name string) error {
 // This operation is idempotent.
 func (c *Connection) DeleteVault(name string) error {
 	// Build request.
-	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
+	request, err := http.NewRequest("DELETE", c.vault(name), nil)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (c *Connection) DeleteVault(name string) error {
 // response might not reflect the changes.
 func (c *Connection) DescribeVault(name string) (*Vault, error) {
 	// Build request.
-	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name, nil)
+	request, err := http.NewRequest("GET", c.vault(name), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -191,23 +191,25 @@ func (c *Connection) DescribeVault(name string) (*Vault, error) {
 // in the request.
 func (c *Connection) ListVaults(marker string, limit int) ([]Vault, string, error) {
 	// Build request.
-	if limit < 0 || limit > 1000 {
-		// TODO return predeclared variable
-		return nil, "", errors.New("limit must be 1 through 1000")
+	parameters := parameters{}
+	if limit > 0 {
+		// TODO validate, 1 - 1000
+		parameters.add("limit", strconv.Itoa(limit))
+	}
+	if marker != "" {
+		parameters.add("marker", marker)
 	}
 
-	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults", nil)
+	// This is the only case where we don't supply a vault name and will thus
+	// need to trim the trailing slash of the generated URL.
+	vaultURL := c.vault("")
+	vaultURL = vaultURL[:len(vaultURL)-1]
+
+	request, err := http.NewRequest("GET", vaultURL+parameters.encode(), nil)
 	if err != nil {
 		return nil, "", err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
-
-	if limit != 0 {
-		request.Header.Add("limit", "")
-	}
-	if marker != "" {
-		request.Header.Add("marker", "")
-	}
 
 	c.Signature.Sign(request, nil)
 
@@ -285,8 +287,7 @@ func (c *Connection) SetVaultNotifications(name string, n *Notifications) error 
 		return err
 	}
 
-	request, err := http.NewRequest("PUT", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name+
-		"/notification-configuration", nil)
+	request, err := http.NewRequest("PUT", c.vault(name)+"/notification-configuration", nil)
 	if err != nil {
 		return err
 	}
@@ -318,8 +319,7 @@ func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) 
 	// Build request.
 	var results Notifications
 
-	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name+
-		"/notification-configuration", nil)
+	request, err := http.NewRequest("GET", c.vault(name)+"/notification-configuration", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -359,8 +359,7 @@ func (c *Connection) GetVaultNotifications(name string) (*Notifications, error) 
 // request.
 func (c *Connection) DeleteVaultNotifications(name string) error {
 	// Build request.
-	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+name+
-		"/notification-configuration", nil)
+	request, err := http.NewRequest("DELETE", c.vault(name)+"/notification-configuration", nil)
 	if err != nil {
 		return err
 	}

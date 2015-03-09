@@ -4,6 +4,7 @@ package glacier
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/rdwilliamson/aws"
 )
@@ -42,4 +43,23 @@ func NewConnection(secret, access string, r *aws.Region) *Connection {
 // toHex returns the lowercase hex encoding of x.
 func toHex(x []byte) string {
 	return fmt.Sprintf("%x", x)
+}
+
+// parameters is a wrapper around url.Values that added the leading "?" when
+// encoding.
+type parameters url.Values
+
+// add adds the key value pair. It appends to any existing values associated
+// with key.
+func (p parameters) add(key, value string) {
+	url.Values(p).Add(key, value)
+}
+
+// Encode encodes the values into “URL encoded” form ("?bar=baz&foo=quux")
+// sorted by key.
+func (p parameters) encode() string {
+	if encoded := url.Values(p).Encode(); encoded != "" {
+		return "?" + encoded
+	}
+	return ""
 }

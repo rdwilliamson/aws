@@ -6,6 +6,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/rdwilliamson/aws"
@@ -67,8 +69,7 @@ type MultipartParts struct {
 // overall archive size.
 func (c *Connection) InitiateMultipart(vault string, size int64, description string) (string, error) {
 	// Build request.
-	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
-		"/multipart-uploads", nil)
+	request, err := http.NewRequest("POST", c.vault(vault)+"/multipart-uploads", nil)
 	if err != nil {
 		return "", err
 	}
@@ -133,8 +134,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body i
 	// TODO check that data size and start location make sense
 
 	// Build request.
-	request, err := http.NewRequest("PUT", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
-		"/multipart-uploads/"+uploadId, body)
+	request, err := http.NewRequest("PUT", c.vault(vault)+"/multipart-uploads/"+uploadId, body)
 	if err != nil {
 		return err
 	}
@@ -215,8 +215,7 @@ func (c *Connection) UploadMultipart(vault, uploadId string, start int64, body i
 // Note: treeHash must be a hex-encoded string.
 func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size int64) (string, error) {
 	// Build request.
-	request, err := http.NewRequest("POST", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
-		"/multipart-uploads/"+uploadId, nil)
+	request, err := http.NewRequest("POST", c.vault(vault)+"/multipart-uploads/"+uploadId, nil)
 	if err != nil {
 		return "", err
 	}
@@ -254,8 +253,7 @@ func (c *Connection) CompleteMultipart(vault, uploadId, treeHash string, size in
 // This operation is idempotent.
 func (c *Connection) AbortMultipart(vault, uploadId string) error {
 	// Build request.
-	request, err := http.NewRequest("DELETE", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
-		"/multipart-uploads/"+uploadId, nil)
+	request, err := http.NewRequest("DELETE", c.vault(vault)+"/multipart-uploads/"+uploadId, nil)
 	if err != nil {
 		return err
 	}
@@ -301,24 +299,16 @@ func (c *Connection) AbortMultipart(vault, uploadId string) error {
 // the limit parameter in the request.
 func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit int) (*MultipartParts, error) {
 	// Build request.
-	url := fmt.Sprintf("https://%s/-/vaults/%s/multipart-uploads/%s",
-		c.Signature.Region.Glacier, vault, uploadId)
-
-	// TODO validate limit
-	var addedLimit bool
+	parameters := parameters{}
 	if limit > 0 {
-		addedLimit = true
-		url += fmt.Sprintf("?limit=%d", limit)
+		// TODO validate limit
+		parameters.add("limit", strconv.Itoa(limit))
 	}
 	if marker != "" {
-		if addedLimit {
-			url += fmt.Sprintf("&marker=%s", marker)
-		} else {
-			url += fmt.Sprintf("?marker=%s", marker)
-		}
+		parameters.add("marker", marker)
 	}
 
-	request, err := http.NewRequest("GET", url, nil)
+	request, err := http.NewRequest("GET", c.vault(vault)+"/multipart-uploads/"+uploadId+parameters.encode(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -396,20 +386,20 @@ func (c *Connection) ListMultipartParts(vault, uploadId, marker string, limit in
 // by an Upload ID.
 func (c *Connection) ListMultipartUploads(vault, marker string, limit int) ([]Multipart, string, error) {
 	// Build request.
-	request, err := http.NewRequest("GET", "https://"+c.Signature.Region.Glacier+"/-/vaults/"+vault+
-		"/multipart-uploads", nil)
+	query := url.Values{}
+	if limit > 0 {
+		// TODO validate limit
+		query.Add("limit", fmt.Sprint(limit))
+	}
+	if marker != "" {
+		query.Add("marker", marker)
+	}
+
+	request, err := http.NewRequest("GET", c.vault(vault)+"/multipart-uploads"+query.Encode(), nil)
 	if err != nil {
 		return nil, "", err
 	}
 	request.Header.Add("x-amz-glacier-version", "2012-06-01")
-
-	// TODO validate limit
-	if limit > 0 {
-		request.Header.Add("limit", fmt.Sprint(limit))
-	}
-	if marker != "" {
-		request.Header.Add("marker", marker)
-	}
 
 	c.Signature.Sign(request, nil)
 

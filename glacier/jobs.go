@@ -6,7 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/rdwilliamson/aws"
@@ -423,31 +423,25 @@ func (c *Connection) GetInventoryJob(vault, job string) (*Inventory, error) {
 // the job exists.
 func (c *Connection) ListJobs(vault, completed, statusCode, marker string, limit int) ([]Job, string, error) {
 	// Build request.
-	get, err := url.Parse(c.vault(vault) + "/jobs")
-	if err != nil {
-		return nil, "", err
-	}
-
-	query := get.Query()
+	parameters := parameters{}
 	if completed != "" {
 		// TODO validate, true or false
-		query.Add("completed", completed)
+		parameters.add("completed", completed)
 	}
 	if limit > 0 {
 		// TODO validate, 1 - 1000
-		query.Add("limit", fmt.Sprint(limit))
+		parameters.add("limit", strconv.Itoa(limit))
 	}
 	if marker != "" {
 		// TODO validate
-		query.Add("marker", marker)
+		parameters.add("marker", marker)
 	}
 	if statusCode != "" {
 		// TODO validate, InProgress, Succeeded, or Failed
-		query.Add("statuscode", statusCode)
+		parameters.add("statuscode", statusCode)
 	}
-	get.RawQuery = query.Encode()
 
-	request, err := http.NewRequest("GET", get.String(), nil)
+	request, err := http.NewRequest("GET", c.vault(vault)+"/jobs"+parameters.encode(), nil)
 	if err != nil {
 		return nil, "", err
 	}
