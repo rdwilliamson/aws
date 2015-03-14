@@ -30,6 +30,11 @@ func (c *Connection) vault(vault string) string {
 	return "https://" + c.Signature.Region.Glacier + "/-/vaults/" + vault
 }
 
+// policy returns the URL prefix of the named policy, without a trailing slash.
+func (c *Connection) policy(policy string) string {
+	return "https://" + c.Signature.Region.Glacier + "/-/policies/" + policy
+}
+
 // NewConnection returns a Connection with an initialized signature
 // based on the provided access credentials and region.
 func NewConnection(secret, access string, r *aws.Region) *Connection {
