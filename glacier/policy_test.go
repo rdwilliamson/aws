@@ -1,6 +1,7 @@
 package glacier
 
 import (
+	"strconv"
 	"testing"
 )
 
@@ -38,5 +39,47 @@ func BenchmarkToDataRetrievalPolicyFastPath(b *testing.B) {
 func BenchmarkToDataRetrievalPolicySlowPath(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ToDataRetrievalPolicy(" bYTES pER hOUR ")
+	}
+}
+
+func TestDataRetrievalPolicy(t *testing.T) {
+	conn := testConnection(t)
+
+	originalPolicy, originalBytes, err := conn.GetDataRetrievalPolicy()
+	if err != nil {
+		t.Fatal("Could not get data retrievel policy.")
+	}
+
+	// Change the policy.
+	var changePolicyTo DataRetrievalPolicy
+	var changeBytesTo int
+	if originalPolicy == BytesPerHour {
+		changePolicyTo = FreeTier
+	} else {
+		changePolicyTo = BytesPerHour
+		changeBytesTo = 1
+	}
+	err = conn.SetRetrievalPolicy(changePolicyTo, changeBytesTo)
+	if err != nil {
+		t.Fatal("Could not set data retrieval policy.")
+	}
+
+	// Verify the policy changed.
+	changedPolicy, changedBytes, err := conn.GetDataRetrievalPolicy()
+	if err != nil {
+		t.Error("Could not get changed data retrieval policy.")
+	}
+	if changedPolicy != changePolicyTo || changedBytes != changeBytesTo {
+		t.Error("Change policy did not take effect (instantly).")
+	}
+
+	// Reset the original policy.
+	err = conn.SetRetrievalPolicy(originalPolicy, originalBytes)
+	if err != nil {
+		policy := originalPolicy.String()
+		if originalPolicy == BytesPerHour {
+			policy += " at " + strconv.Itoa(originalBytes)
+		}
+		t.Fatalf("WARNING!!! Could not reset policy to %s, please reset manually.", policy)
 	}
 }

@@ -5,11 +5,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"os"
 	"testing"
 	"time"
-
-	"github.com/rdwilliamson/aws"
 )
 
 const (
@@ -50,33 +47,13 @@ func TestHugeParts(t *testing.T) {
 // are set. It uploads nParts+1 parts; nParts of size partSize, and a final
 // one of size (3/4)*partSize.
 func testUpload(t *testing.T, r io.Reader, nParts int, partSize int64) {
-	secret, access := aws.KeysFromEnviroment()
-	vault := os.Getenv(envGlacierVault)
-	regionStr := os.Getenv(envGlacierRegion)
-	if secret == "" || access == "" {
-		t.Skipf("%s or %s is not provided.", envAWSAccess, envAWSSecret)
-	}
-	if vault == "" {
-		t.Skipf("%s is not provided.", envGlacierVault)
-	}
-	if regionStr == "" {
-		t.Skipf("%s is not provided.", envGlacierRegion)
-	}
-	var region *aws.Region
-	for _, r := range aws.Regions {
-		if r.Name == regionStr {
-			region = r
-			break
-		}
-	}
-	if region == nil {
-		t.Skipf("%s is invalid.", envGlacierRegion)
-	}
-	description := fmt.Sprintf("multipart-upload-test-%d", time.Now().UnixNano())
-	conn := NewConnection(secret, access, region)
+	conn := testConnection(t)
+	vault := testVault(t)
+
 	// Add 3/4ths of a part to simulate a uneven read.
 	toRead := int64(nParts)*partSize + partSize>>1 + partSize>>2
 	nParts++
+	description := fmt.Sprintf("multipart-upload-test-%d", time.Now().UnixNano())
 	uploadID, err := conn.InitiateMultipart(vault, partSize, description)
 	if err != nil {
 		t.Fatal(err)
