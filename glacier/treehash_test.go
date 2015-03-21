@@ -1,6 +1,9 @@
 package glacier
 
-import "testing"
+import (
+	"crypto/sha256"
+	"testing"
+)
 
 type thTestCase struct {
 	treeHash    string
@@ -146,4 +149,16 @@ func BenchmarkTreeHash(b *testing.B) {
 		b.SetBytes(int64(n))
 	}
 	th.Close()
+}
+
+func BenchmarkTreeHashClose(b *testing.B) {
+	nodes := make([][sha256.Size]byte, 4)
+	for i := range nodes {
+		nodes[i] = sha256.Sum256([]byte{byte(i)})
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		treeHash(nodes)
+	}
 }
