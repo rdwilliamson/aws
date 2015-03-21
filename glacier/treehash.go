@@ -60,31 +60,34 @@ func treeHash(nodes [][sha256.Size]byte) [sha256.Size]byte {
 // step is repeated until there is only a single node, this is the tree hash.
 // See docs.aws.amazon.com/amazonglacier/latest/dev/checksum-calculations.html
 type TreeHash struct {
-	nodes       [][sha256.Size]byte
 	remaining   []byte
+	nodes       [][sha256.Size]byte
 	runningHash hash.Hash         // linear
 	treeHash    [sha256.Size]byte // computed
-	linearHash  []byte            //computed
+	linearHash  [sha256.Size]byte // computed
 }
 
 // NewTreeHash returns an new, initialized tree hasher.
 func NewTreeHash() *TreeHash {
-	result := &TreeHash{}
+	result := &TreeHash{
+		runningHash: sha256.New(),
+		remaining:   make([]byte, 0, 1<<20),
+	}
 	result.Reset()
 	return result
 }
 
 // Reset the tree hash's state allowing it to be reused.
 func (th *TreeHash) Reset() {
-	th.runningHash = sha256.New()
-	th.remaining = make([]byte, 0)
-	th.nodes = make([][sha256.Size]byte, 0)
+	th.runningHash.Reset()
+	th.remaining = th.remaining[:0]
+	th.nodes = th.nodes[:0]
 	th.treeHash = [sha256.Size]byte{}
-	th.linearHash = make([]byte, 0)
+	th.linearHash = [sha256.Size]byte{}
 }
 
 // Write writes all of p, storing every 1 MiB of data's hash.
-func (th *TreeHash) Write(p []byte) (n int, err error) {
+func (th *TreeHash) Write2(p []byte) (n int, err error) {
 	n = len(p)
 	th.remaining = append(th.remaining, p...)
 
@@ -97,19 +100,51 @@ func (th *TreeHash) Write(p []byte) (n int, err error) {
 	return
 }
 
+// Write writes all of p, storing every 1 MiB of data's hash.
+func (th *TreeHash) Write(p []byte) (int, error) {
+	n := len(p)
+
+	// Not enough data to fill a 1 MB chunk.
+	if len(th.remaining)+len(p) < 1<<20 {
+		th.remaining = append(th.remaining, p...)
+		return n, nil
+	}
+
+	// Move enough to fill th.remaining to 1 MB.
+	fill := 1<<20 - len(th.remaining)
+	th.remaining = append(th.remaining, p[:fill]...)
+	p = p[fill:]
+
+	// Append the 1 MB in th.remaining.
+	th.nodes = append(th.nodes, sha256.Sum256(th.remaining))
+	th.runningHash.Write(th.remaining)
+	th.remaining = th.remaining[:0]
+
+	// Append all 1M chunks remaining in p.
+	for len(p) >= 1<<20 {
+		th.nodes = append(th.nodes, sha256.Sum256(p[:1<<20]))
+		th.runningHash.Write(p[:1<<20])
+		p = p[1<<20:]
+	}
+
+	// Copy what remains in p to th.remaining.
+	th.remaining = append(th.remaining, p...)
+
+	return n, nil
+}
+
 // Close closes the the remaing chunks of data and then calculates the tree hash.
 func (th *TreeHash) Close() error {
 	// create last node; it is impossible that it has a size > 1 MB
 	if len(th.remaining) > 0 {
 		th.nodes = append(th.nodes, sha256.Sum256(th.remaining))
 		th.runningHash.Write(th.remaining)
-		th.remaining = make([]byte, 0)
 	}
 	// Calculate the tree and linear hashes
 	if len(th.nodes) > 0 {
 		th.treeHash = treeHash(th.nodes)
 	}
-	th.linearHash = th.runningHash.Sum(nil)
+	th.runningHash.Sum(th.linearHash[:0])
 	return nil
 }
 
