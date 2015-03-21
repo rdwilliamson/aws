@@ -35,26 +35,21 @@ func (t *MultiTreeHasher) CreateHash() string {
 // treeHash calculates the root-level treeHash given sequential
 // leaf nodes.
 func treeHash(nodes [][sha256.Size]byte) [sha256.Size]byte {
-	curLevel := make([][sha256.Size]byte, len(nodes))
-	copy(curLevel, nodes)
-	for len(curLevel) > 1 {
-		nextLevel := make([][sha256.Size]byte, 0)
-		for i := 0; i < len(curLevel); i++ {
-			if i%2 == 1 { // Concat with previous node and promote
-				var sum [sha256.Size * 2]byte
-				copy(sum[:sha256.Size], curLevel[i-1][:])
-				copy(sum[sha256.Size:], curLevel[i][:])
-				concat := sha256.Sum256(sum[:])
-				nextLevel = append(nextLevel, concat)
-				continue
-			}
-			if i == len(curLevel)-1 { // Promote last node in an odd-length level
-				nextLevel = append(nextLevel, curLevel[i])
-			}
+	var combine [sha256.Size * 2]byte
+	for len(nodes) > 1 {
+		for i := 0; i < len(nodes)/2; i++ {
+			copy(combine[:sha256.Size], nodes[i*2][:])
+			copy(combine[sha256.Size:], nodes[i*2+1][:])
+			nodes[i] = sha256.Sum256(combine[:])
 		}
-		curLevel = nextLevel
+		if len(nodes)%2 == 0 {
+			nodes = nodes[:len(nodes)/2]
+		} else {
+			nodes[len(nodes)/2] = nodes[len(nodes)-1]
+			nodes = nodes[:len(nodes)/2+1]
+		}
 	}
-	return curLevel[0]
+	return nodes[0]
 }
 
 // TreeHash is used to calculate the tree hash and regular sha256 hash of the
