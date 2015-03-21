@@ -87,20 +87,6 @@ func (th *TreeHash) Reset() {
 }
 
 // Write writes all of p, storing every 1 MiB of data's hash.
-func (th *TreeHash) Write2(p []byte) (n int, err error) {
-	n = len(p)
-	th.remaining = append(th.remaining, p...)
-
-	// Append one-megabyte increments to the hashes.
-	for len(th.remaining) >= (1 << 20) {
-		th.nodes = append(th.nodes, sha256.Sum256(th.remaining[:1<<20]))
-		th.runningHash.Write(th.remaining[:1<<20])
-		th.remaining = th.remaining[1<<20:]
-	}
-	return
-}
-
-// Write writes all of p, storing every 1 MiB of data's hash.
 func (th *TreeHash) Write(p []byte) (int, error) {
 	n := len(p)
 
