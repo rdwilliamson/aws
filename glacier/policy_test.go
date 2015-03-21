@@ -47,7 +47,7 @@ func TestDataRetrievalPolicy(t *testing.T) {
 
 	originalPolicy, originalBytes, err := conn.GetDataRetrievalPolicy()
 	if err != nil {
-		t.Fatal("Could not get data retrievel policy.")
+		t.Fatal("Could not get data retrievel policy.", err)
 	}
 
 	// Change the policy.
@@ -61,13 +61,13 @@ func TestDataRetrievalPolicy(t *testing.T) {
 	}
 	err = conn.SetRetrievalPolicy(changePolicyTo, changeBytesTo)
 	if err != nil {
-		t.Fatal("Could not set data retrieval policy.")
+		t.Fatal("Could not set data retrieval policy.", err)
 	}
 
 	// Verify the policy changed.
 	changedPolicy, changedBytes, err := conn.GetDataRetrievalPolicy()
 	if err != nil {
-		t.Error("Could not get changed data retrieval policy.")
+		t.Error("Could not get changed data retrieval policy.", err)
 	}
 	if changedPolicy != changePolicyTo || changedBytes != changeBytesTo {
 		t.Error("Change policy did not take effect (instantly).")
@@ -80,6 +80,6 @@ func TestDataRetrievalPolicy(t *testing.T) {
 		if originalPolicy == BytesPerHour {
 			policy += " at " + strconv.Itoa(originalBytes)
 		}
-		t.Fatalf("WARNING!!! Could not reset policy to %s, please reset manually.", policy)
+		t.Fatalf("WARNING!!! Could not reset policy to %s, please reset manually. %v", policy, err)
 	}
 }
