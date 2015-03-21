@@ -151,6 +151,35 @@ func BenchmarkTreeHash(b *testing.B) {
 	th.Close()
 }
 
+func BenchmarkTreeHashReset(b *testing.B) {
+	b.StopTimer()
+	data1 := make([]byte, 768)
+	for i := range data1 {
+		data1[i] = 'a'
+	}
+	data2 := make([]byte, 2034)
+	for i := range data2 {
+		data2[i] = 'a'
+	}
+	th := NewTreeHash()
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		n1, err := th.Write(data1)
+		if err != nil {
+			b.Fatal(err)
+		}
+		n2, err := th.Write(data2)
+		if err != nil {
+			b.Fatal(err)
+		}
+		th.Close()
+		th.Reset()
+		b.SetBytes(int64(n1 + n2))
+	}
+	th.Close()
+}
+
 func BenchmarkTreeHashClose(b *testing.B) {
 	nodes := make([][sha256.Size]byte, 4)
 	for i := range nodes {
