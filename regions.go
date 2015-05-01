@@ -40,4 +40,4 @@ var (
 	}
 )
 
-var Regions = []*Region{USEast1, USWest1, USWest2, EU1, AsiaPacific1, AsiaPacific2}
+var Regions = []*Region{USEast1, USWest1, USWest2, EU1, EU2, AsiaPacific1, AsiaPacific2}
